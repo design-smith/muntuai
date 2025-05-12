@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=Work+Sans:wght@300;400;600;700&display=swap');
+
+:root {
+  /* Color Variables */
+  --orange-crayola: #FF7125ff;
+  --marian-blue: #3C4884ff;
+  --space-cadet: #272D4Fff;
+  --desert-sand: #DBBAA7ff;
+  --bone: #E8E0D5ff;
+  --raisin-black: #202125ff;
+
+  font-family: 'Open Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: var(--raisin-black);
+}
+
+a {
+  font-weight: 500;
+  color: var(--orange-crayola);
+  text-decoration: inherit;
+  font-family: 'Open Sans', sans-serif;
+}
+
+a:hover {
+  color: var(--marian-blue);
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background: linear-gradient(to bottom, var(--raisin-black) 0%, var(--marian-blue) 60%, var(--orange-crayola) 100%);
+  color: #ffffff;
+  font-family: 'Open Sans', sans-serif;
+}
+
+h1 {
+  font-family: 'Work Sans', sans-serif;
+  font-size: 3.2em;
+  line-height: 1.1;
+  color: var(--orange-crayola);
+}
+
+h2 {
+  font-family: 'Work Sans', sans-serif;
+  font-size: 2.4em;
+  line-height: 1.1;
+  color: var(--orange-crayola);
+}
+
+.Typography {
+  color: var(--desert-sand);
+  font-family: 'Open Sans', sans-serif;
+}
+
+h3 {
+  font-family: 'Work Sans', sans-serif;
+  font-size: 1.8em;
+  line-height: 1.1;
+  color: var(--orange-crayola);
+}
+
+p {
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1.2em;
+  line-height: 1.1;
+  color: var(--desert-sand);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: var(--raisin-black);
+    background-color: var(--bone);
+  }
+  a:hover {
+    color: var(--marian-blue);
+  }
+}
