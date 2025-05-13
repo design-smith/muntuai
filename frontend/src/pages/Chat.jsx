@@ -18,6 +18,7 @@ import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import BotIcon from '@mui/icons-material/SmartToy';
+import { websocketService } from '../services/websocket';
 
 // Dummy history data with additional fields for ChatScope
 const dummyHistory = [
@@ -89,12 +90,45 @@ const initialMessagesPerChat = [
 const Chat = () => {
   const [selected, setSelected] = useState(null);
   const [input, setInput] = useState('');
-  const [messagesPerChat, setMessagesPerChat] = useState(initialMessagesPerChat);
+  const [messagesPerChat, setMessagesPerChat] = useState([[]]);
   const [selectedAssistant, setSelectedAssistant] = useState(assistants[0]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [currentMessages, setCurrentMessages] = useState([]);
   const messagesEndRef = useRef(null);
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    websocketService.connect();
+    
+    // Add message handler
+    const handleMessage = (data) => {
+      if (data.type === 'message') {
+        const newMessage = {
+          sender: data.sender,
+          text: data.content,
+          position: 'incoming',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        setMessagesPerChat(prev => {
+          const updated = [...prev];
+          updated[selected] = [...(updated[selected] || []), newMessage];
+          return updated;
+        });
+
+        setCurrentMessages(prev => [...prev, newMessage]);
+      }
+    };
+
+    websocketService.addMessageHandler(handleMessage);
+
+    // Cleanup
+    return () => {
+      websocketService.removeMessageHandler(handleMessage);
+      websocketService.disconnect();
+    };
+  }, []);
 
   // Close dropdown on outside click
   React.useEffect(() => {
@@ -112,7 +146,7 @@ const Chat = () => {
   }, [dropdownOpen]);
 
   // Update current messages when selected chat changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (selected !== null && messagesPerChat[selected]) {
       setCurrentMessages(messagesPerChat[selected]);
     } else {
@@ -120,6 +154,7 @@ const Chat = () => {
     }
   }, [selected, messagesPerChat]);
 
+  // Auto-scroll to bottom
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -147,28 +182,11 @@ const Chat = () => {
     // Update current messages
     setCurrentMessages(prev => [...prev, userMessage]);
 
+    // Send message through WebSocket
+    websocketService.sendMessage(content);
+
     // Clear input
     setInput('');
-
-    // Simulate AI response after a short delay
-    setTimeout(() => {
-      const assistantMessage = {
-        sender: `${selectedAssistant.name} (AI)`,
-        text: getAssistantResponse(content, selectedAssistant.name),
-        position: 'incoming',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      // Update messages for this chat
-      setMessagesPerChat(prev => {
-        const updated = [...prev];
-        updated[selected] = [...(updated[selected] || []), assistantMessage];
-        return updated;
-      });
-
-      // Update current messages
-      setCurrentMessages(prev => [...prev, assistantMessage]);
-    }, 800);
   };
 
   // Simple AI response generator based on assistant type
