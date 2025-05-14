@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Conversation from './pages/Conversation';
 import Settings from './pages/Settings';
 import Chat from './pages/Chat';
+import TemplateEditor from './components/TemplateEditor';
 import './App.css';
 // Import Material UI icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -57,6 +58,17 @@ function AppLayout({ children }) {
   );
 }
 
+function TemplateEditorWrapper() {
+  const location = useLocation();
+  const template = location.state?.template;
+  
+  if (!template) {
+    return <Navigate to="/settings" replace />;
+  }
+
+  return <TemplateEditor template={template} />;
+}
+
 function App() {
   return (
     <Router>
@@ -66,6 +78,7 @@ function App() {
           <Route path="/chat" element={<Chat />} />
           <Route path="/conversation" element={<Conversation />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/templates/edit/:id" element={<TemplateEditorWrapper />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AppLayout>

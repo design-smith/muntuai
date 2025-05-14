@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{{TITLE}}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+        .signature-container {
+            min-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            min-height: 200px;
+            background: #fff;
+        }
+        .main-row {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 32px;
+        }
+        .left-col {
+            flex: 1.3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 220px;
+        }
+        .profile-picture {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .name {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0;
+            color: #2c3e50;
+            text-align: center;
+        }
+        .title {
+            font-size: 16px;
+            color: #666;
+            margin: 5px 0 0 0;
+            text-align: center;
+        }
+        .social-media {
+            margin-top: 12px;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+        .social-links {
+            display: flex;
+            gap: 10px;
+        }
+        .social-link {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+        .social-link:hover {
+            background: #e0e0e0;
+        }
+        .social-link img {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+        }
+        .right-col {
+            flex: 2;
+            min-width: 250px;
+        }
+        .contact-info {
+            margin-bottom: 20px;
+        }
+        .contact-item {
+            margin: 5px 0;
+            color: #666;
+        }
+        .contact-item a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .contact-item a:hover {
+            text-decoration: underline;
+        }
+        .logo-section {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .logo {
+            max-width: 150px;
+            height: auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="signature-container">
+        <div class="main-row">
+            <div class="left-col">
+                {{#PROFILE_PICTURE}}
+                <img src="{{PROFILE_PICTURE}}" alt="Profile Picture" class="profile-picture">
+                {{/PROFILE_PICTURE}}
+                {{^PROFILE_PICTURE}}
+                <div class="profile-picture">Add Photo</div>
+                {{/PROFILE_PICTURE}}
+                <h1 class="name">
+                  {{#NAME}}{{NAME}}{{/NAME}}{{^NAME}}Your Name{{/NAME}}
+                </h1>
+                <p class="title">
+                  {{#TITLE}}{{TITLE}}{{/TITLE}}{{^TITLE}}Your Title{{/TITLE}}
+                </p>
+                <div class="social-media">
+                    <div class="social-links">
+                        {{#SOCIAL_MEDIA}}
+                        <a href="{{LINK}}" target="_blank" class="social-link">
+                            <img src="{{ICON}}" alt="Social Media Icon">
+                        </a>
+                        {{/SOCIAL_MEDIA}}
+                        {{^SOCIAL_MEDIA}}
+                        <span style="color:#aaa;font-size:14px;">Add your social media links</span>
+                        {{/SOCIAL_MEDIA}}
+                    </div>
+                </div>
+            </div>
+            <div class="right-col">
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <strong>Email:</strong>
+                        {{#EMAIL}}<a href="mailto:{{EMAIL}}">{{EMAIL}}</a>{{/EMAIL}}{{^EMAIL}}your.email@example.com{{/EMAIL}}
+                    </div>
+                    <div class="contact-item">
+                        <strong>Website:</strong>
+                        {{#WEBSITE}}<a href="{{WEBSITE}}" target="_blank">{{WEBSITE}}</a>{{/WEBSITE}}{{^WEBSITE}}your-website.com{{/WEBSITE}}
+                    </div>
+                    <div class="contact-item">
+                        <strong>Phone:</strong>
+                        {{#PHONE}}{{PHONE}}{{/PHONE}}{{^PHONE}}+1234567890{{/PHONE}}
+                    </div>
+                </div>
+                {{#LOGO}}
+                <div class="logo-section">
+                    <img src="{{LOGO}}" alt="Company Logo" class="logo">
+                </div>
+                {{/LOGO}}
+                {{^LOGO}}
+                <div class="logo-section">
+                    <div class="logo" style="background:#e0e0e0;display:inline-block;width:120px;height:60px;line-height:60px;text-align:center;color:#aaa;">Logo</div>
+                </div>
+                {{/LOGO}}
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
