@@ -19,6 +19,7 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import BotIcon from '@mui/icons-material/SmartToy';
 import { websocketService } from '../services/websocket';
+import CfeedBubble from '../components/CfeedBubble';
 
 // Dummy history data with additional fields for ChatScope
 const dummyHistory = [
@@ -71,16 +72,42 @@ const assistants = [
   { name: 'Mia', desc: 'Customer support', color: '#21a300' },
 ];
 
-// Initial messages per conversation
-const initialMessagesPerChat = [
+// Initial messages per conversation (moved directly into state)
+const initialMessages = [
   [
-    { sender: 'AI Assistant', text: 'How can I help you today?', position: 'incoming', time: '09:00' },
-    { sender: 'You', text: 'Show me my schedule.', position: 'outgoing', time: '09:01' },
-    { sender: 'AI Assistant', text: 'Here is your schedule for today...', position: 'incoming', time: '09:01' },
+    { sender: 'AI Assistant', text: 'How can I help you today?', position: 'incoming', time: '09:00', type: 'text' },
+    { sender: 'You', text: 'Show me my schedule.', position: 'outgoing', time: '09:01', type: 'text' },
+    { sender: 'AI Assistant', text: 'Here is your schedule for today...', position: 'incoming', time: '09:01', type: 'text' },
+    {
+      sender: 'AI Assistant',
+      type: 'cfeed',
+      cfeedType: 'action',
+      position: 'incoming',
+      time: '09:02',
+      content: {
+        eventTitle: 'Lorem Ipsum',
+        date: 'mm/dd/yyyy',
+        time: '00:00',
+        description: 'Lorem ipsum kjdd alk sdjds...',
+        guests: 'Peter Thiel',
+      },
+      status: 'pending',
+    },
+    {
+      sender: 'AI Assistant',
+      type: 'cfeed',
+      cfeedType: 'messaging',
+      position: 'incoming',
+      time: '09:03',
+      content: {
+        text: 'Here is a draft message for your review before sending.'
+      },
+      status: 'pending',
+    },
   ],
   [
-    { sender: 'You', text: 'Remind me to call John at 2pm.', position: 'outgoing', time: '09:02' },
-    { sender: 'AI Assistant', text: 'Reminder set for 2pm to call John.', position: 'incoming', time: '09:02' },
+    { sender: 'You', text: 'Remind me to call John at 2pm.', position: 'outgoing', time: '09:02', type: 'text' },
+    { sender: 'AI Assistant', text: 'Reminder set for 2pm to call John.', position: 'incoming', time: '09:02', type: 'text' },
   ],
   [],
   [],
@@ -90,12 +117,13 @@ const initialMessagesPerChat = [
 const Chat = () => {
   const [selected, setSelected] = useState(null);
   const [input, setInput] = useState('');
-  const [messagesPerChat, setMessagesPerChat] = useState([[]]);
+  const [messagesPerChat, setMessagesPerChat] = useState(initialMessages);
   const [selectedAssistant, setSelectedAssistant] = useState(assistants[0]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [currentMessages, setCurrentMessages] = useState([]);
   const messagesEndRef = useRef(null);
+  const [editingCfeedIdx, setEditingCfeedIdx] = useState(null);
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -189,25 +217,71 @@ const Chat = () => {
     setInput('');
   };
 
-  // Simple AI response generator based on assistant type
-  const getAssistantResponse = (message, assistantName) => {
-    const assistant = assistants.find(a => a.name === assistantName);
-    
-    if (assistant.name === 'Rose') {
-      return `As your sales assistant, I can help with that! ${message.includes('schedule') ? 'I found your sales meetings for today.' : 'Is there anything specific about our products you would like to know?'}`;
-    } else if (assistant.name === 'Alex') {
-      return `I'm here to assist with general inquiries. ${message.includes('schedule') ? 'Here is your schedule for today.' : 'How else can I help you?'}`;
-    } else if (assistant.name === 'Mia') {
-      return `As your customer support assistant, ${message.includes('schedule') ? 'I can see your customer meetings for today.' : 'I can help troubleshoot any issues you are experiencing.'}`;
-    }
-    
-    return "I can help with scheduling, reminders, and more!";
-  };
-
   // Handle assistant selection from dropdown
   const handleAssistantSelect = (assistant) => {
     setSelectedAssistant(assistant);
     setDropdownOpen(false);
+  };
+
+  // Handler for cfeed actions
+  const handleCfeedApprove = (msgIdx) => {
+    setMessagesPerChat(prev => {
+      const updated = [...prev];
+      const chatMsgs = [...(updated[selected] || [])];
+      const cfeedMsg = chatMsgs[msgIdx];
+      if (cfeedMsg && cfeedMsg.type === 'cfeed') {
+        // Add as normal outgoing message
+        chatMsgs.splice(msgIdx, 1, {
+          sender: 'You',
+          text: cfeedMsg.cfeedType === 'messaging' ? cfeedMsg.content.text :
+            `Event: ${cfeedMsg.content.eventTitle}\nDate: ${cfeedMsg.content.date} ${cfeedMsg.content.time}\nDescription: ${cfeedMsg.content.description}\nGuests: ${cfeedMsg.content.guests}`,
+          position: 'outgoing',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          type: 'text',
+        });
+      }
+      updated[selected] = chatMsgs;
+      return updated;
+    });
+    setEditingCfeedIdx(null);
+  };
+
+  const handleCfeedEdit = (msgIdx) => {
+    setEditingCfeedIdx(msgIdx);
+  };
+
+  const handleCfeedDecline = (msgIdx) => {
+    setMessagesPerChat(prev => {
+      const updated = [...prev];
+      const chatMsgs = [...(updated[selected] || [])];
+      chatMsgs.splice(msgIdx, 1);
+      updated[selected] = chatMsgs;
+      return updated;
+    });
+    setEditingCfeedIdx(null);
+  };
+
+  const handleCfeedSaveEdit = (msgIdx, newContent) => {
+    setMessagesPerChat(prev => {
+      const updated = [...prev];
+      const chatMsgs = [...(updated[selected] || [])];
+      // Send as outgoing message and remove cfeed
+      chatMsgs.splice(msgIdx, 1, {
+        sender: 'You',
+        text: newContent.text ||
+          `Event: ${newContent.eventTitle}\nDate: ${newContent.date} ${newContent.time}\nDescription: ${newContent.description}\nGuests: ${newContent.guests}`,
+        position: 'outgoing',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: 'text',
+      });
+      updated[selected] = chatMsgs;
+      return updated;
+    });
+    setEditingCfeedIdx(null);
+  };
+
+  const handleCfeedCancelEdit = () => {
+    setEditingCfeedIdx(null);
   };
 
   return (
@@ -273,13 +347,29 @@ const Chat = () => {
               {/* Messages area */}
               <Box className="chat-main-messages">
                 {currentMessages.map((msg, idx) => (
-                  <Box key={idx} className={`message-bubble-wrapper-${msg.position === 'outgoing' ? 'right' : 'left'}`}>
-                    <Box className={`message-bubble-${msg.position === 'outgoing' ? 'right' : 'left'}`}>
-                      <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '4px' }}>
-                        {msg.sender} • {msg.time}
-                      </div>
-                      {msg.text}
-                    </Box>
+                  <Box key={idx}>
+                    {msg.type === 'cfeed' ? (
+                      <CfeedBubble
+                        cfeedType={msg.cfeedType}
+                        content={msg.content}
+                        position='left'
+                        editing={editingCfeedIdx === idx}
+                        onApprove={() => handleCfeedApprove(idx)}
+                        onEdit={() => handleCfeedEdit(idx)}
+                        onDecline={() => handleCfeedDecline(idx)}
+                        onSaveEdit={(newContent) => handleCfeedSaveEdit(idx, newContent)}
+                        onCancelEdit={handleCfeedCancelEdit}
+                      />
+                    ) : (
+                      <Box className={`message-bubble-wrapper-${msg.position === 'outgoing' ? 'right' : 'left'}`}> 
+                        <Box className={`message-bubble-${msg.position === 'outgoing' ? 'right' : 'left'}`}>
+                          <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '4px' }}>
+                            {msg.sender} • {msg.time}
+                          </div>
+                          {msg.text}
+                        </Box>
+                      </Box>
+                    )}
                   </Box>
                 ))}
                 <div ref={messagesEndRef} />

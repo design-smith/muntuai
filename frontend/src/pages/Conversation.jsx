@@ -16,6 +16,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import Switch from '@mui/material/Switch';
 import Slider from '@mui/material/Slider';
+import CfeedBubble from '../components/CfeedBubble';
 
 // Source types with icons
 const sourceConfig = {
@@ -49,6 +50,32 @@ const messagesByConversation = {
   'Alice Brown': [
     { sender: 'Alice Brown', text: "Hi, I'm interested in your services.", position: 'incoming', time: '2:13 PM' },
     { sender: 'You', text: "Thanks! I'll get back to you shortly.", position: 'outgoing', time: '2:14 PM' },
+    {
+      sender: 'You',
+      type: 'cfeed',
+      cfeedType: 'action',
+      position: 'outgoing',
+      time: '2:15 PM',
+      content: {
+        eventTitle: 'Demo Meeting',
+        date: '06/15/2025',
+        time: '10:00',
+        description: 'Product demo for Alice Brown',
+        guests: 'Alice Brown',
+      },
+      status: 'pending',
+    },
+    {
+      sender: 'You',
+      type: 'cfeed',
+      cfeedType: 'messaging',
+      position: 'outgoing',
+      time: '2:16 PM',
+      content: {
+        text: 'Hi Alice, just confirming our meeting for tomorrow at 10am. Let me know if that works!'
+      },
+      status: 'pending',
+    },
   ],
   'David Kim': [
     { sender: 'David Kim', text: "Hey, are you available for a call?", position: 'incoming', time: '1:05 PM' },
@@ -91,6 +118,7 @@ const Conversations = () => {
   const [contextSummary, setContextSummary] = useState('This is a summary of the conversation. You can edit this as needed.');
   const [leadTempOn, setLeadTempOn] = useState(false);
   const [leadTempValue, setLeadTempValue] = useState(98);
+  const [editingCfeedIdx, setEditingCfeedIdx] = useState(null);
 
   // Static upcoming events data
   const upcomingEvents = [
@@ -171,6 +199,61 @@ const Conversations = () => {
 
   const handleCloseSlider = () => {
     setShowContactSlider(false);
+  };
+
+  // Handler for cfeed actions
+  const handleCfeedApprove = (msgIdx) => {
+    setMessages(() => {
+      const chatMsgs = [...messages];
+      const cfeedMsg = chatMsgs[msgIdx];
+      if (cfeedMsg && cfeedMsg.type === 'cfeed') {
+        // Add as normal outgoing message
+        chatMsgs.splice(msgIdx, 1, {
+          sender: 'You',
+          text: cfeedMsg.cfeedType === 'messaging' ? cfeedMsg.content.text :
+            `Event: ${cfeedMsg.content.eventTitle}\nDate: ${cfeedMsg.content.date} ${cfeedMsg.content.time}\nDescription: ${cfeedMsg.content.description}\nGuests: ${cfeedMsg.content.guests}`,
+          position: 'outgoing',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          type: 'text',
+        });
+      }
+      return chatMsgs;
+    });
+    setEditingCfeedIdx(null);
+  };
+
+  const handleCfeedEdit = (msgIdx) => {
+    setEditingCfeedIdx(msgIdx);
+  };
+
+  const handleCfeedDecline = (msgIdx) => {
+    setMessages(() => {
+      const chatMsgs = [...messages];
+      chatMsgs.splice(msgIdx, 1);
+      return chatMsgs;
+    });
+    setEditingCfeedIdx(null);
+  };
+
+  const handleCfeedSaveEdit = (msgIdx, newContent) => {
+    setMessages(() => {
+      const chatMsgs = [...messages];
+      // Send as outgoing message and remove cfeed
+      chatMsgs.splice(msgIdx, 1, {
+        sender: 'You',
+        text: newContent.text ||
+          `Event: ${newContent.eventTitle}\nDate: ${newContent.date} ${newContent.time}\nDescription: ${newContent.description}\nGuests: ${newContent.guests}`,
+        position: 'outgoing',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        type: 'text',
+      });
+      return chatMsgs;
+    });
+    setEditingCfeedIdx(null);
+  };
+
+  const handleCfeedCancelEdit = () => {
+    setEditingCfeedIdx(null);
   };
 
   return (
@@ -526,13 +609,29 @@ const Conversations = () => {
                       {/* Messages */}
                       <Box className="conversation-messages">
                         {messages.map((msg, idx) => (
-                          <Box key={idx} className={`message-bubble-wrapper-${msg.position === 'outgoing' ? 'right' : 'left'}`}>
-                            <Box className={`message-bubble-${msg.position === 'outgoing' ? 'right' : 'left'}`}>
-                              <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '4px' }}>
-                                {msg.sender} • {msg.time}
-                              </div>
-                              {msg.text}
-                            </Box>
+                          <Box key={idx}>
+                            {msg.type === 'cfeed' ? (
+                              <CfeedBubble
+                                cfeedType={msg.cfeedType}
+                                content={msg.content}
+                                position={msg.position === 'outgoing' ? 'right' : 'left'}
+                                editing={editingCfeedIdx === idx}
+                                onApprove={() => handleCfeedApprove(idx)}
+                                onEdit={() => handleCfeedEdit(idx)}
+                                onDecline={() => handleCfeedDecline(idx)}
+                                onSaveEdit={(newContent) => handleCfeedSaveEdit(idx, newContent)}
+                                onCancelEdit={handleCfeedCancelEdit}
+                              />
+                            ) : (
+                              <Box className={`message-bubble-wrapper-${msg.position === 'outgoing' ? 'right' : 'left'}`}> 
+                                <Box className={`message-bubble-${msg.position === 'outgoing' ? 'right' : 'left'}`}>
+                                  <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '4px' }}>
+                                    {msg.sender} • {msg.time}
+                                  </div>
+                                  {msg.text}
+                                </Box>
+                              </Box>
+                            )}
                           </Box>
                         ))}
                       </Box>
