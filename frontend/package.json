@@ -20,14 +20,16 @@
     "@react-email/render": "^1.1.2",
     "@stripe/react-stripe-js": "^3.7.0",
     "@stripe/stripe-js": "^7.3.0",
-    "mjml": "^4.15.3",
-    "mjml-react": "^2.0.8",
+    "@supabase/supabase-js": "^2.49.8",
+    "axios": "^1.9.0",
+    "dotenv": "^16.5.0",
     "mustache": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-email-editor": "^1.7.11",
     "react-router-dom": "^7.5.3",
-    "recharts": "^2.15.3"
+    "recharts": "^2.15.3",
+    "supabase": "^2.23.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",

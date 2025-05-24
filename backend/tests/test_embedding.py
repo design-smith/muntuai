@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from GraphRAG.graphrag.embeddings.embedding import EmbeddingService
+from backend.GraphRAG.graphrag.embeddings.embedding import EmbeddingService
 import asyncio
 
 async def main():

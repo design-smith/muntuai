@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Typography, Grid, ToggleButtonGroup, ToggleButton, IconButton } from '@mui/material';
 import { LineChartDisplay, DonutChartDisplay } from '../components/ChartsSection';
 import { InfoCard } from '../components/CardElements';
@@ -12,41 +12,30 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Search from '../components/Search';
 import ChartsSection from '../components/ChartsSection';
-
-const initialTodoItems = [
-  {
-    title: 'Draft marketing plan for Q2',
-    description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore ......',
-    dueTime: '13:45',
-    status: 'done',
-  },
-  {
-    title: 'Prepare client onboarding docs',
-    description: 'Ensure all onboarding documents are ready for the new client meeting tomorrow.',
-    dueTime: '09:00',
-    status: 'pending',
-  },
-  {
-    title: 'Review sales pipeline',
-    description: 'Go through the sales pipeline and update the status of all leads.',
-    dueTime: '17:00',
-    status: 'pending',
-  },
-];
+import { useUser } from '../App';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
-  const [todoItems, setTodoItems] = React.useState(initialTodoItems);
-  const [anchorEl, setAnchorEl] = React.useState(null);
-  const [timeframe, setTimeframe] = React.useState('Month');
+  const [todoItems, setTodoItems] = useState([]);
+  const [topMessages, setTopMessages] = useState([]);
+  const [channelData, setChannelData] = useState([]);
+  const [lineData, setLineData] = useState([]);
+  const [cards, setCards] = useState([]);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [timeframe, setTimeframe] = useState('Month');
+  const [loading, setLoading] = useState(true);
+  const [userDoc, setUserDoc] = useState(null);
+  const [metrics, setMetrics] = useState({
+    conversationsToday: 0,
+    messagesToday: 0,
+    contacts: 0,
+    businesses: 0,
+  });
+  const { user, supabase, setUser } = useUser();
+  const navigate = useNavigate();
 
-  const handleToggleTodo = (idx) => {
-    setTodoItems((prev) =>
-      prev.map((item, i) =>
-        i === idx
-          ? { ...item, status: item.status === 'done' ? 'pending' : 'done' }
-          : item
-      )
-    );
+  const handleToggleTodo = () => {
+    // No-op if no data
   };
 
   const handleProfileMenuOpen = (event) => {
@@ -63,135 +52,126 @@ const Dashboard = () => {
     if (newTimeframe) setTimeframe(newTimeframe);
   };
 
-  const cards = [
-    {
-      title: 'Active Conversations',
-      value: 55,
-      icon: <ChatBubbleOutlineIcon sx={{ fontSize: 28, color: 'var(--marian-blue)' }} />,
-      change: '↑ 9.2%',
-      changeColor: '#4caf50',
-      subtext: 'vs last period'
-    },
-    {
-      title: 'Recovered Leads',
-      value: 8,
-      icon: <ReplayIcon sx={{ fontSize: 28, color: 'var(--orange-crayola)' }} />,
-      change: '↑ 4.5%',
-      changeColor: '#4caf50',
-      subtext: 'vs last period'
-    },
-    {
-      title: 'Resolution Rate',
-      value: '85%',
-      icon: <TrendingUpIcon sx={{ fontSize: 28, color: 'var(--desert-sand)' }} />,
-      change: '↑ 2.1%',
-      changeColor: '#4caf50',
-      subtext: 'vs last period'
-    },
-    {
-      title: 'Filtered Conversations',
-      value: 23,
-      icon: <ChatBubbleOutlineIcon sx={{ fontSize: 28, color: 'var(--orange-crayola)' }} />,
-      change: '↑ 3.7%',
-      changeColor: '#4caf50',
-      subtext: 'vs last period'
-    }
-  ];
-
-  const topMessages = [
-    {
-      sender: 'Kelly Marce',
-      message: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore ......',
-      time: '13:45',
-      unread: 2,
-    },
-    {
-      sender: 'David Kim',
-      message: 'Client is waiting for your response.',
-      time: '12:10',
-      unread: 1,
-    },
-    {
-      sender: 'Support Bot',
-      message: 'Reminder: Follow up with new leads.',
-      time: '09:30',
-      unread: 1,
-    },
-  ];
-
-  // Example data for each timeframe
-  const channelDataMap = {
-    Day: [
-      { name: 'Email', value: 20 },
-      { name: 'SMS', value: 15 },
-      { name: 'Phone', value: 10 },
-      { name: 'Slack', value: 5 },
-    ],
-    Week: [
-      { name: 'Email', value: 120 },
-      { name: 'SMS', value: 90 },
-      { name: 'Phone', value: 60 },
-      { name: 'Slack', value: 30 },
-    ],
-    Month: [
-      { name: 'Email', value: 400 },
-      { name: 'SMS', value: 300 },
-      { name: 'Phone', value: 200 },
-      { name: 'Slack', value: 100 },
-    ],
-    Year: [
-      { name: 'Email', value: 4800 },
-      { name: 'SMS', value: 3600 },
-      { name: 'Phone', value: 2400 },
-      { name: 'Slack', value: 1200 },
-    ],
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    navigate('/login');
   };
-  const lineDataMap = {
-    Day: [
-      { time: '8am', Email: 2, SMS: 1, Phone: 1, Slack: 0 },
-      { time: '10am', Email: 3, SMS: 2, Phone: 1, Slack: 1 },
-      { time: '12pm', Email: 5, SMS: 3, Phone: 2, Slack: 1 },
-      { time: '2pm', Email: 4, SMS: 4, Phone: 2, Slack: 1 },
-      { time: '4pm', Email: 3, SMS: 2, Phone: 2, Slack: 1 },
-      { time: '6pm', Email: 3, SMS: 3, Phone: 2, Slack: 1 },
-    ],
-    Week: [
-      { time: 'Mon', Email: 20, SMS: 15, Phone: 10, Slack: 5 },
-      { time: 'Tue', Email: 18, SMS: 14, Phone: 9, Slack: 4 },
-      { time: 'Wed', Email: 22, SMS: 16, Phone: 11, Slack: 6 },
-      { time: 'Thu', Email: 19, SMS: 13, Phone: 10, Slack: 5 },
-      { time: 'Fri', Email: 21, SMS: 17, Phone: 12, Slack: 7 },
-      { time: 'Sat', Email: 10, SMS: 8, Phone: 6, Slack: 3 },
-      { time: 'Sun', Email: 10, SMS: 7, Phone: 5, Slack: 2 },
-    ],
-    Month: [
-      { time: 'Jan', Email: 100, SMS: 80, Phone: 60, Slack: 30 },
-      { time: 'Feb', Email: 120, SMS: 90, Phone: 50, Slack: 20 },
-      { time: 'Mar', Email: 90, SMS: 70, Phone: 40, Slack: 25 },
-      { time: 'Apr', Email: 110, SMS: 60, Phone: 30, Slack: 15 },
-      { time: 'May', Email: 130, SMS: 100, Phone: 20, Slack: 10 },
-      { time: 'Jun', Email: 140, SMS: 120, Phone: 50, Slack: 0 },
-    ],
-    Year: [
-      { time: '2023', Email: 800, SMS: 600, Phone: 400, Slack: 200 },
-      { time: '2024', Email: 4000, SMS: 3000, Phone: 2000, Slack: 1000 },
-    ],
+
+  // Helper to get ISO string for start of today
+  const getTodayISOString = () => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now.toISOString();
   };
-  const channelData = channelDataMap[timeframe];
-  const channelVolumeOverTime = lineDataMap[timeframe];
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user?.id) return;
+      setLoading(true);
+      try {
+        // 1. Fetch user doc from DB
+        const userRes = await fetch(`/api/users/${user.id}`);
+        const userData = await userRes.json();
+        setUserDoc(userData);
+
+        // 2. Fetch metrics
+        const today = getTodayISOString();
+        // Conversations today
+        const convRes = await fetch(`/api/conversations`);
+        const convData = await convRes.json();
+        const conversationsToday = convData.conversations.filter(
+          c => c.user_id === user.id && c.created_at && new Date(c.created_at) >= new Date(today)
+        );
+        // Messages today
+        const msgRes = await fetch(`/api/messages`);
+        const msgData = await msgRes.json();
+        const messagesToday = msgData.messages.filter(
+          m => m.user_id === user.id && m.created_at && new Date(m.created_at) >= new Date(today)
+        );
+        // Contacts
+        const contactsRes = await fetch(`/api/contacts`);
+        const contactsData = await contactsRes.json();
+        const contacts = contactsData.contacts.filter(c => c.user_id === user.id);
+        // Businesses
+        const bizRes = await fetch(`/api/businesses`);
+        const bizData = await bizRes.json();
+        const businesses = bizData.businesses.filter(b => b.user_id === user.id);
+
+        setMetrics({
+          conversationsToday: conversationsToday.length,
+          messagesToday: messagesToday.length,
+          contacts: contacts.length,
+          businesses: businesses.length,
+        });
+        // For Action Required (topMessages)
+        setTopMessages(messagesToday.slice(0, 3));
+        // For To-Do Today (todoItems)
+        setTodoItems([]); // No real to-do data, so empty
+        // For Channel Volume (charts)
+        setChannelData([]); // No real channel data, so empty
+        setLineData([]); // No real line data, so empty
+        // For Cards (metrics)
+        setCards([
+          {
+            title: 'Conversations Today',
+            value: conversationsToday.length,
+            icon: <ChatBubbleOutlineIcon sx={{ fontSize: 28, color: 'var(--marian-blue)' }} />,
+            change: '',
+            changeColor: '',
+            subtext: '',
+          },
+          {
+            title: 'Messages Today',
+            value: messagesToday.length,
+            icon: <TrendingUpIcon sx={{ fontSize: 28, color: 'var(--desert-sand)' }} />,
+            change: '',
+            changeColor: '',
+            subtext: '',
+          },
+          {
+            title: 'Contacts',
+            value: contacts.length,
+            icon: <ReplayIcon sx={{ fontSize: 28, color: 'var(--orange-crayola)' }} />,
+            change: '',
+            changeColor: '',
+            subtext: '',
+          },
+          {
+            title: 'Businesses',
+            value: businesses.length,
+            icon: <ChatBubbleOutlineIcon sx={{ fontSize: 28, color: 'var(--orange-crayola)' }} />,
+            change: '',
+            changeColor: '',
+            subtext: '',
+          },
+        ]);
+      } catch {
+        setTopMessages([]);
+        setTodoItems([]);
+        setChannelData([]);
+        setLineData([]);
+        setCards([]);
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, [user?.id, timeframe]);
+
+  const firstName = userDoc?.name?.split(' ')[0] || userDoc?.name || user?.name?.split(' ')[0] || user?.name || user?.email;
 
   return (
     <Box className="page-container">
       <Box className="dashboard-topbar">
         <h1>
-          Welcome Zeke G.
+          Welcome {firstName}
         </h1>
         <Box className="dashboard-topbar-actions">
           <Search />
           <IconButton size="large" className="dashboard-profile-icon" onClick={handleProfileMenuOpen}>
             <AccountCircle fontSize="large" />
           </IconButton>
-          <span className="dashboard-username">Zeke</span>
+          <span className="dashboard-username">{firstName}</span>
           <Menu
             anchorEl={anchorEl}
             open={open}
@@ -200,8 +180,8 @@ const Dashboard = () => {
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             className="dashboard-profile-menu"
           >
-            <MenuItem onClick={handleMenuClose}>Profile</MenuItem>
-            <MenuItem onClick={handleMenuClose}>Logout</MenuItem>
+            <MenuItem disabled>{user?.email}</MenuItem>
+            <MenuItem onClick={handleLogout}>Logout</MenuItem>
           </Menu>
         </Box>
       </Box>
@@ -209,34 +189,46 @@ const Dashboard = () => {
         <div className="dashboard-sections-row">
           <div className="dashboard-section">
             <h3>Action Required</h3>
-            {topMessages.map((msg, idx) => (
-              <UnopenedMessage
-                key={idx}
-                sender={msg.sender}
-                message={msg.message}
-                time={msg.time}
-                unread={msg.unread}
-              />
-            ))}
+            {loading ? (
+              <div>Loading...</div>
+            ) : topMessages.length === 0 ? (
+              <div>No data yet</div>
+            ) : (
+              topMessages.map((msg, idx) => (
+                <UnopenedMessage
+                  key={idx}
+                  sender={msg.sender || msg.user_id || 'Unknown'}
+                  message={msg.content || msg.text || 'No message'}
+                  time={msg.created_at ? new Date(msg.created_at).toLocaleTimeString() : ''}
+                  unread={msg.unread || 0}
+                />
+              ))
+            )}
           </div>
           <div className="dashboard-section">
             <h3>To-Do Today</h3>
-            {todoItems.map((item, idx) => (
-              <TodoCard
-                key={idx}
-                title={item.title}
-                description={item.description}
-                dueTime={item.dueTime}
-                status={item.status}
-                onToggle={() => handleToggleTodo(idx)}
-              />
-            ))}
+            {loading ? (
+              <div>Loading...</div>
+            ) : todoItems.length === 0 ? (
+              <div>No data yet</div>
+            ) : (
+              todoItems.map((item, idx) => (
+                <TodoCard
+                  key={idx}
+                  title={item.title}
+                  description={item.description}
+                  dueTime={item.dueTime}
+                  status={item.status}
+                  onToggle={() => handleToggleTodo()}
+                />
+              ))
+            )}
           </div>
         </div>
       </Box>
       <Box className="section">
         <Box className="dashboard-timeframe-row">
-        <h3>Channel Volume</h3>
+          <h3>Channel Volume</h3>
           <ToggleButtonGroup
             value={timeframe}
             exclusive
@@ -250,23 +242,47 @@ const Dashboard = () => {
             <ToggleButton value="Year">Year</ToggleButton>
           </ToggleButtonGroup>
         </Box>
-        <ChartsSection channelData={channelData} lineData={channelVolumeOverTime} />
+        {loading ? (
+          <div>Loading...</div>
+        ) : channelData.length === 0 && lineData.length === 0 ? (
+          <div>No data yet</div>
+        ) : (
+          <ChartsSection channelData={channelData} lineData={lineData} />
+        )}
       </Box>
       <Box className="plain-section">
         <Grid container spacing={2} alignItems="center" justifyContent="center">
-          {cards.map((card, index) => (
-            <Grid item xs={12} key={index}>
-              <InfoCard
-                title={card.title}
-                value={card.value}
-                icon={card.icon}
-                change={card.change}
-                changeColor={card.changeColor}
-                subtext={card.subtext}
-              />
-            </Grid>
-          ))}
+          {loading ? (
+            <Grid item xs={12}><div>Loading...</div></Grid>
+          ) : cards.length === 0 ? (
+            <Grid item xs={12}><div>No data yet</div></Grid>
+          ) : (
+            cards.map((card, index) => (
+              <Grid item xs={12} key={index}>
+                <InfoCard
+                  title={card.title}
+                  value={card.value}
+                  icon={card.icon}
+                  change={card.change}
+                  changeColor={card.changeColor}
+                  subtext={card.subtext}
+                />
+              </Grid>
+            ))
+          )}
         </Grid>
+      </Box>
+      <Box className="section">
+        {loading ? (
+          <div>Loading metrics...</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'flex-start' }}>
+            <div><b>Conversations Today:</b> {metrics.conversationsToday}</div>
+            <div><b>Messages Today:</b> {metrics.messagesToday}</div>
+            <div><b>Contacts:</b> {metrics.contacts}</div>
+            <div><b>Businesses:</b> {metrics.businesses}</div>
+          </div>
+        )}
       </Box>
     </Box>
   );

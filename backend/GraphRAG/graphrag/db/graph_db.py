@@ -51,7 +51,7 @@ class Neo4jWrapper:
                                from_id=from_props['id'],
                                to_id=to_props['id'],
                                rel_props=rel_props or {})
-            return result.single()
+            return result.single() 
 
     def get_node(self, label: str, match_props: dict):
         with self.driver.session() as session:

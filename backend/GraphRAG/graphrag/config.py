@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from functools import lru_cache
+from typing import List
 
 class Settings(BaseSettings):
     # Neo4j Configuration
@@ -17,6 +18,8 @@ class Settings(BaseSettings):
 
     # Extra fields for compatibility with environment
     DEEPSEEK_API_KEY: str = Field(default=None, alias="DEEPSEEK_API_KEY")
+
+    CORS_ORIGINS: List[str] = ["*"]  # Allow all origins by default for dev
 
     model_config = {
         "env_file": ".env",

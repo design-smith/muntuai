@@ -3,7 +3,10 @@ from dotenv import load_dotenv
 import autogen
 from datetime import datetime, timedelta
 import json
-from utils import get_current_datetime, format_datetime_for_prompt
+from backend.agents.utils import get_current_datetime, format_datetime_for_prompt
+from backend.GraphRAG.graphrag.engine.context_builder import GraphRAGContextBuilder
+from backend.GraphRAG.graphrag.engine.rag_engine import GraphRAGEngine
+import uuid
 
 # Load environment variables
 load_dotenv()
@@ -94,7 +97,7 @@ class CalendarManager:
             if datetime.fromisoformat(event["start_time"]).date() == target_date
         ]
 
-def get_calendar_agent(name="CalendarAssistant", timezone="EST"):
+def get_calendar_agent(name="CalendarAssistant", timezone="EST", context_builder=None):
     """Returns a configured calendar agent."""
     calendar_manager = CalendarManager(timezone=timezone)
     
@@ -143,4 +146,90 @@ def get_calendar_agent(name="CalendarAssistant", timezone="EST"):
     # Add calendar manager to the agent's context
     calendar_agent.calendar_manager = calendar_manager
     
+    # Add context builder to the agent's context
+    if context_builder is None:
+        graph_rag_engine = GraphRAGEngine()
+        context_builder = GraphRAGContextBuilder(graph_rag_engine)
+    calendar_agent.context_builder = context_builder
+    
+    # Add graph update method
+    def update_graph_with_calendar_change(operation_type, task_details, execution_result):
+        """
+        Update the knowledge graph after a calendar operation.
+        Handles add_event and remove_event.
+        Enhanced: Handles more event properties, checks for duplicates, and robust error handling.
+        """
+        graph_rag_engine = calendar_agent.context_builder.graph_rag_engine
+        graph_db = graph_rag_engine.graph_db
+        if operation_type == "add_event" and execution_result[0]:
+            # Check for duplicate event (by title and start_time)
+            existing_events = graph_db.get_node("Event", {"title": task_details["title"], "start_time": task_details["start_time"]})
+            if existing_events:
+                # If already exists, skip creation (idempotency)
+                return
+            event_id = str(uuid.uuid4())
+            event_props = {
+                "id": event_id,
+                "title": task_details["title"],
+                "start_time": task_details["start_time"],
+                "end_time": (datetime.fromisoformat(task_details["start_time"]) + timedelta(minutes=task_details["duration_minutes"])) .isoformat(),
+                "description": task_details.get("description", ""),
+                "source": "calendar_agent",
+                "created_at": datetime.now().isoformat(),
+                "status": "scheduled"
+            }
+            # Optional properties
+            if "recurrence" in task_details:
+                event_props["recurrence"] = task_details["recurrence"]
+            if "category" in task_details:
+                event_props["category"] = task_details["category"]
+            graph_db.create_node("Event", event_props)
+            # Relationships: attendees
+            if "attendees" in task_details and task_details["attendees"]:
+                for person_id in task_details["attendees"]:
+                    graph_db.create_relationship(
+                        person_id, event_id, "PARTICIPATES_IN", {"role": "attendee"}
+                    )
+            # Relationship: location
+            if "location" in task_details and task_details["location"]:
+                location_id = task_details["location"]  # In real use, resolve or create location node
+                graph_db.create_relationship(
+                    event_id, location_id, "LOCATED_AT", {}
+                )
+        elif operation_type == "remove_event" and execution_result[0]:
+            # Mark event as canceled (find by title and start_time)
+            event_nodes = graph_db.get_node("Event", {"title": task_details["title"], "start_time": task_details["start_time"]})
+            if event_nodes:
+                event_id = event_nodes[0]["id"]
+                graph_db.update_node(event_id, {
+                    "status": "canceled",
+                    "canceled_at": datetime.now().isoformat()
+                })
+            else:
+                # Event not found, nothing to update
+                pass
+    calendar_agent.update_graph_with_calendar_change = update_graph_with_calendar_change
+    
     return calendar_agent 
+
+# Example: wrap add_event and remove_event to update graph after success
+# (In a real system, this would be part of the agent's main execution logic)
+def add_event_and_update_graph(agent, title, start_time, duration_minutes, description=""):
+    result = agent.calendar_manager.add_event(title, start_time, duration_minutes, description)
+    if result[0]:
+        agent.update_graph_with_calendar_change("add_event", {
+            "title": title,
+            "start_time": start_time,
+            "duration_minutes": duration_minutes,
+            "description": description
+        }, result)
+    return result
+
+def remove_event_and_update_graph(agent, event_title, start_time):
+    result = agent.calendar_manager.remove_event(event_title, start_time)
+    if result[0]:
+        agent.update_graph_with_calendar_change("remove_event", {
+            "title": event_title,
+            "start_time": start_time
+        }, result)
+    return result 

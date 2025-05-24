@@ -2,7 +2,7 @@ import sys
 import os
 import asyncio
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from GraphRAG.graphrag.engine.rag_engine import GraphRAGEngine
+from backend.GraphRAG.graphrag.engine.rag_engine import GraphRAGEngine
 
 async def main():
     engine = GraphRAGEngine()
