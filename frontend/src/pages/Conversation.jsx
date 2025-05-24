@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Button, Divider, FormControl, InputLabel, MenuItem, Select, Chip, Checkbox, ListItemText, OutlinedInput } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
@@ -118,7 +118,7 @@ const Conversations = () => {
   const [contextSummary, setContextSummary] = useState('This is a summary of the conversation. You can edit this as needed.');
   const [leadTempOn, setLeadTempOn] = useState(false);
   const [leadTempValue, setLeadTempValue] = useState(98);
-  const [editingCfeedIdx, setEditingCfeedIdx] = useState(null);
+  const [conversationsData, setConversationsData] = useState([]);
 
   // Static upcoming events data
   const upcomingEvents = [
@@ -134,11 +134,25 @@ const Conversations = () => {
     },
   ];
 
+  // Fetch conversations from backend
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/conversations');
+        const data = await response.json();
+        setConversationsData(data.conversations || []);
+      } catch {
+        setConversationsData([]);
+      }
+    };
+    fetchConversations();
+  }, []);
+
   // Filter conversations based on selected sources and search
   const filteredConversations = conversationsData.filter(c =>
     selectedSources.includes(c.source) &&
-    (c.sender.toLowerCase().includes(search.toLowerCase()) || 
-     c.message.toLowerCase().includes(search.toLowerCase()))
+    ((c.sender && c.sender.toLowerCase().includes(search.toLowerCase())) || 
+     (c.message && c.message.toLowerCase().includes(search.toLowerCase())))
   );
 
   // Handle source filter changes

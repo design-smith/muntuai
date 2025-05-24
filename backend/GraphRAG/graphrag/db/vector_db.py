@@ -46,7 +46,7 @@ class QdrantWrapper:
                 "embedding_id": models.PayloadSchemaType.KEYWORD,
             }
         )
-
+    
     def create_task_collection(self):
         self.client.recreate_collection(
             collection_name="Task",
@@ -173,14 +173,14 @@ class QdrantWrapper:
     def get_embedding(self, collection: str, id: str):
         result = self.client.retrieve(collection_name=collection, ids=[id])
         return result
-
+    
     def search_vectors(self, collection_name: str, query_vector: List[float], limit: int = 5):
         search_result = self.client.search(
             collection_name=collection_name,
             query_vector=query_vector,
             limit=limit
         )
-        return search_result
+        return search_result 
 
 if __name__ == "__main__":
     print("Testing Qdrant connectivity...")

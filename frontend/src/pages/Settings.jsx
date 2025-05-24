@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Tabs, Tab, Avatar } from '@mui/material';
 import { TextInput, LongTextInput } from '../components/BasicFormElements';
 import { CheckboxGroup, RadioGroup, Switch } from '../components/SelectionElements';
@@ -33,6 +33,7 @@ import SettingsIntegrations from '../components/SettingsIntegrations';
 import SettingsAssistants from '../components/SettingsAssistants';
 import SettingsProfile from '../components/SettingsProfile';
 import SettingsConversations from '../components/SettingsConversations';
+import { useUser } from '../App';
 
 const SETTINGS_SECTIONS = [
   { label: 'General', value: 'general' },
@@ -47,11 +48,10 @@ const SETTINGS_SECTIONS = [
 const Settings = () => {
   const [selected, setSelected] = useState('general');
   // General settings state
-  const [name, setName] = useState('Zeke G.');
-  const [email] = useState('zeke@example.com');
+  const [email] = useState('');
   const [notifications, setNotifications] = useState({ email: true, sms: false, push: true });
-  const [language, setLanguage] = useState('en');
-  const [currency, setCurrency] = useState('USD');
+  // const [language, setLanguage] = useState('en');
+  // const [currency, setCurrency] = useState('USD');
   const [dataProtection, setDataProtection] = useState(false);
   const [integrationModal, setIntegrationModal] = useState({ open: false, type: null });
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
@@ -64,21 +64,16 @@ const Settings = () => {
   };
   const handleAddMethod = () => {};
 
-  const notificationOptions = [
-    { label: 'Email', value: 'email' },
-    { label: 'SMS', value: 'sms' },
-    { label: 'Push', value: 'push' },
-  ];
-  const languageOptions = [
-    { label: 'English', value: 'en' },
-    { label: 'French', value: 'fr' },
-    { label: 'Spanish', value: 'es' },
-  ];
-  const currencyOptions = [
-    { label: 'USD ($)', value: 'USD' },
-    { label: 'EUR (€)', value: 'EUR' },
-    { label: 'KES (Ksh)', value: 'KES' },
-  ];
+  // const languageOptions = [
+  //   { label: 'English', value: 'en' },
+  //   { label: 'French', value: 'fr' },
+  //   { label: 'Spanish', value: 'es' },
+  // ];
+  // const currencyOptions = [
+  //   { label: 'USD ($)', value: 'USD' },
+  //   { label: 'EUR (€)', value: 'EUR' },
+  //   { label: 'KES (Ksh)', value: 'KES' },
+  // ];
 
   // Static integration data
   const integrationTypes = [
@@ -166,119 +161,97 @@ const Settings = () => {
     setSelectedIntegration(null);
   };
 
-  // Assistants static data
-  const [assistants, setAssistants] = useState([
-    {
-      name: 'Maria',
-      type: 'Customer Support',
-      status: 'Active',
-      isActive: true,
-      responsibilities: ['Schedule meetings and appointments', 'Additional instructions: Help people'],
-      channels: ['email'],
-      created: '5/1/2025',
-      respondAsMe: false,
-      instructions: 'Help people',
-    },
-  ]);
-  const [assistantModal, setAssistantModal] = useState({ open: false, mode: 'edit', idx: null });
-  const [assistantForm, setAssistantForm] = useState({
-    name: '',
-    type: 'General',
-    isActive: true,
-    responsibilities: {},
-    instructions: '',
-    respondAsMe: false,
-    channels: {},
-  });
+  // Assistants backend-driven state
+  const [assistants, setAssistants] = useState([]);
+  const [loadingAssistants, setLoadingAssistants] = useState(false);
+  const [assistantError, setAssistantError] = useState('');
 
-  const responsibilityOptions = [
-    { label: 'Read and respond to emails', value: 'Read and respond to emails' },
-    { label: 'Schedule meetings and appointments', value: 'Schedule meetings and appointments' },
-    { label: 'Follow up with clients and leads', value: 'Follow up with clients and leads' },
-    { label: 'Draft email responses for your review', value: 'Draft email responses for your review' },
-    { label: 'Summarize long email threads', value: 'Summarize long email threads' },
-  ];
-  const typeOptions = [
-    { label: 'General', value: 'General' },
-    { label: 'Sales', value: 'Sales' },
-    { label: 'Customer Support', value: 'Customer Support' },
-  ];
-  const channelOptions = [
-    { label: 'email', value: 'email' },
-    { label: 'sms', value: 'sms' },
-    { label: 'phone', value: 'phone' },
-    { label: 'whatsapp', value: 'whatsapp' },
-    { label: 'messenger', value: 'messenger' },
-    { label: 'linkedin', value: 'linkedin' },
-  ];
+  // Fetch assistants from backend on load and when accessToken changes
+  const { user } = useUser();
+  useEffect(() => {
+    if (!user) return;
+    const fetchAssistants = async () => {
+      setLoadingAssistants(true);
+      setAssistantError('');
+      try {
+        const res = await fetch('http://localhost:8000/assistants', {
+          headers: { 'Authorization': `Bearer ${user.accessToken}` },
+        });
+        const data = await res.json();
+        setAssistants(data.assistants || []);
+      } catch {
+        setAssistantError('Failed to load assistants');
+      } finally {
+        setLoadingAssistants(false);
+      }
+    };
+    fetchAssistants();
+  }, [user]);
 
-  const openEditModal = (idx) => {
-    const a = assistants[idx];
-    setAssistantForm({
-      name: a.name,
-      type: a.type,
-      isActive: a.isActive,
-      responsibilities: Object.fromEntries(responsibilityOptions.map(opt => [opt.value, a.responsibilities.includes(opt.value)])),
-      instructions: a.instructions,
-      respondAsMe: a.respondAsMe,
-      channels: Object.fromEntries(channelOptions.map(opt => [opt.value, a.channels.includes(opt.value)])),
-    });
-    setAssistantModal({ open: true, mode: 'edit', idx });
-  };
-  const openAddModal = () => {
-    setAssistantForm({
-      name: '',
-      type: 'General',
-      isActive: true,
-      responsibilities: {},
-      instructions: '',
-      respondAsMe: false,
-      channels: {},
-    });
-    setAssistantModal({ open: true, mode: 'add', idx: null });
-  };
-  const closeAssistantModal = () => setAssistantModal({ open: false, mode: 'edit', idx: null });
-
-  const handleAssistantFormChange = (field, value) => {
-    setAssistantForm((prev) => ({ ...prev, [field]: value }));
-  };
-  const handleResponsibilitiesChange = (e) => {
-    setAssistantForm((prev) => ({ ...prev, responsibilities: { ...prev.responsibilities, [e.target.name]: e.target.checked } }));
-  };
-  const handleChannelsChange = (e) => {
-    setAssistantForm((prev) => ({ ...prev, channels: { ...prev.channels, [e.target.name]: e.target.checked } }));
-  };
-  const handleSaveAssistant = () => {
+  // Add, edit, delete logic using backend
+  const handleSaveAssistant = async () => {
     const selectedResponsibilities = responsibilityOptions.filter(opt => assistantForm.responsibilities[opt.value]).map(opt => opt.value);
     const selectedChannels = channelOptions.filter(opt => assistantForm.channels[opt.value]).map(opt => opt.value);
-    if (assistantModal.mode === 'edit') {
-      setAssistants((prev) => prev.map((a, i) => i === assistantModal.idx ? {
-        ...a,
-        name: assistantForm.name,
-        type: assistantForm.type,
-        isActive: assistantForm.isActive,
-        responsibilities: selectedResponsibilities,
-        instructions: assistantForm.instructions,
-        respondAsMe: assistantForm.respondAsMe,
-        channels: selectedChannels,
-      } : a));
-    } else {
-      setAssistants((prev) => [
-        ...prev,
-        {
-          name: assistantForm.name,
-          type: assistantForm.type,
-          status: assistantForm.isActive ? 'Active' : 'Inactive',
-          isActive: assistantForm.isActive,
-          responsibilities: selectedResponsibilities,
-          instructions: assistantForm.instructions,
-          respondAsMe: assistantForm.respondAsMe,
-          channels: selectedChannels,
-          created: new Date().toLocaleDateString(),
-        },
-      ]);
+    const payload = {
+      name: assistantForm.name,
+      type: assistantForm.type,
+      isActive: assistantForm.isActive,
+      responsibilities: selectedResponsibilities,
+      instructions: assistantForm.instructions,
+      respondAsMe: assistantForm.respondAsMe,
+      channels: selectedChannels,
+    };
+    setAssistantError('');
+    try {
+      if (assistantModal.mode === 'edit') {
+        const id = assistants[assistantModal.idx]._id;
+        await fetch(`http://localhost:8000/assistants/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.accessToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await fetch('http://localhost:8000/assistants', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.accessToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+      // Refresh assistants
+      const res = await fetch('http://localhost:8000/assistants', {
+        headers: { 'Authorization': `Bearer ${user.accessToken}` },
+      });
+      const data = await res.json();
+      setAssistants(data.assistants || []);
+      closeAssistantModal();
+    } catch {
+      setAssistantError('Failed to save assistant');
     }
-    closeAssistantModal();
+  };
+
+  const handleDeleteAssistant = async (idx) => {
+    setAssistantError('');
+    try {
+      const id = assistants[idx]._id;
+      await fetch(`http://localhost:8000/assistants/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user.accessToken}` },
+      });
+      // Refresh assistants
+      const res = await fetch('http://localhost:8000/assistants', {
+        headers: { 'Authorization': `Bearer ${user.accessToken}` },
+      });
+      const data = await res.json();
+      setAssistants(data.assistants || []);
+    } catch {
+      setAssistantError('Failed to delete assistant');
+    }
   };
 
   // Profile tab state
@@ -355,21 +328,21 @@ const Settings = () => {
   };
 
   // Payment methods static data
-  const [paymentMethods, setPaymentMethods] = useState([
-    { brand: 'visa', last4: '1234', exp: '06/2024', default: true },
-    { brand: 'mastercard', last4: '1234', exp: '06/2024', default: false },
-  ]);
-  const handleSetDefault = idx => {
-    setPaymentMethods(methods => methods.map((m, i) => ({ ...m, default: i === idx })));
-  };
-  const handleAddNew = () => {};
+  // const [paymentMethods, setPaymentMethods] = useState([
+  //   { brand: 'visa', last4: '1234', exp: '06/2024', default: true },
+  //   { brand: 'mastercard', last4: '1234', exp: '06/2024', default: false },
+  // ]);
+  // const handleSetDefault = idx => {
+  //   setPaymentMethods(methods => methods.map((m, i) => ({ ...m, default: i === idx })));
+  // };
+  // const handleAddNew = () => {};
 
   // Add after paymentMethods and before return
-  const invoiceHistory = [
-    { date: '2024-06-01', number: 'INV-1001', amount: '$50.00', status: 'Paid', url: '#' },
-    { date: '2024-05-01', number: 'INV-1000', amount: '$50.00', status: 'Paid', url: '#' },
-    { date: '2024-04-01', number: 'INV-0999', amount: '$50.00', status: 'Paid', url: '#' },
-  ];
+  // const invoiceHistory = [
+  //   { date: '2024-06-01', number: 'INV-1001', amount: '$50.00', status: 'Paid', url: '#' },
+  //   { date: '2024-05-01', number: 'INV-1000', amount: '$50.00', status: 'Paid', url: '#' },
+  //   { date: '2024-04-01', number: 'INV-0999', amount: '$50.00', status: 'Paid', url: '#' },
+  // ];
 
   // Add after twoFAEnabled state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -420,6 +393,81 @@ const Settings = () => {
   const [autoResponse, setAutoResponse] = useState(false);
   const [emailSearchRange, setEmailSearchRange] = useState(30);
 
+  const notificationOptions = [
+    { label: 'Email', value: 'email' },
+    { label: 'SMS', value: 'sms' },
+    { label: 'Push', value: 'push' },
+  ];
+
+  const [assistantModal, setAssistantModal] = useState({ open: false, mode: 'edit', idx: null });
+  const [assistantForm, setAssistantForm] = useState({
+    name: '',
+    type: 'General',
+    isActive: true,
+    responsibilities: {},
+    instructions: '',
+    respondAsMe: false,
+    channels: {},
+  });
+
+  const responsibilityOptions = [
+    { label: 'Read and respond to emails', value: 'Read and respond to emails' },
+    { label: 'Schedule meetings and appointments', value: 'Schedule meetings and appointments' },
+    { label: 'Follow up with clients and leads', value: 'Follow up with clients and leads' },
+    { label: 'Draft email responses for your review', value: 'Draft email responses for your review' },
+    { label: 'Summarize long email threads', value: 'Summarize long email threads' },
+  ];
+  const typeOptions = [
+    { label: 'General', value: 'General' },
+    { label: 'Sales', value: 'Sales' },
+    { label: 'Customer Support', value: 'Customer Support' },
+  ];
+  const channelOptions = [
+    { label: 'email', value: 'email' },
+    { label: 'sms', value: 'sms' },
+    { label: 'phone', value: 'phone' },
+    { label: 'whatsapp', value: 'whatsapp' },
+    { label: 'messenger', value: 'messenger' },
+    { label: 'linkedin', value: 'linkedin' },
+  ];
+
+  const openEditModal = (idx) => {
+    const a = assistants[idx];
+    setAssistantForm({
+      name: a.name,
+      type: a.type,
+      isActive: a.isActive,
+      responsibilities: Object.fromEntries(responsibilityOptions.map(opt => [opt.value, a.responsibilities.includes(opt.value)])),
+      instructions: a.instructions,
+      respondAsMe: a.respondAsMe,
+      channels: Object.fromEntries(channelOptions.map(opt => [opt.value, a.channels.includes(opt.value)])),
+    });
+    setAssistantModal({ open: true, mode: 'edit', idx });
+  };
+  const openAddModal = () => {
+    setAssistantForm({
+      name: '',
+      type: 'General',
+      isActive: true,
+      responsibilities: {},
+      instructions: '',
+      respondAsMe: false,
+      channels: {},
+    });
+    setAssistantModal({ open: true, mode: 'add', idx: null });
+  };
+  const closeAssistantModal = () => setAssistantModal({ open: false, mode: 'edit', idx: null });
+
+  const handleAssistantFormChange = (field, value) => {
+    setAssistantForm((prev) => ({ ...prev, [field]: value }));
+  };
+  const handleResponsibilitiesChange = (e) => {
+    setAssistantForm((prev) => ({ ...prev, responsibilities: { ...prev.responsibilities, [e.target.name]: e.target.checked } }));
+  };
+  const handleChannelsChange = (e) => {
+    setAssistantForm((prev) => ({ ...prev, channels: { ...prev.channels, [e.target.name]: e.target.checked } }));
+  };
+
   return (  
       <Box className="settings-page-root">
         <Box className="settings-menu">
@@ -442,18 +490,10 @@ const Settings = () => {
         <Box className="settings-content">
           {selected === 'general' ? (
             <SettingsGeneral
-              name={name}
-              setName={setName}
               email={email}
               notifications={notifications}
               notificationOptions={notificationOptions}
               handleNotificationChange={handleNotificationChange}
-              language={language}
-              setLanguage={setLanguage}
-              languageOptions={languageOptions}
-              currency={currency}
-              setCurrency={setCurrency}
-              currencyOptions={currencyOptions}
             />
           ) : selected === 'billing' ? (
             <SettingsBilling
@@ -463,10 +503,7 @@ const Settings = () => {
               selectedPlan={selectedPlan}
               setSelectedPlan={setSelectedPlan}
               getPlanPrice={getPlanPrice}
-              paymentMethods={paymentMethods}
-              handleSetDefault={handleSetDefault}
-              handleAddNew={handleAddNew}
-              invoiceHistory={invoiceHistory}
+              user={user}
             />
           ) : selected === 'security' ? (
             <SettingsSecurity
@@ -508,6 +545,9 @@ const Settings = () => {
               channelOptions={channelOptions}
               handleChannelsChange={handleChannelsChange}
               handleSaveAssistant={handleSaveAssistant}
+              handleDeleteAssistant={handleDeleteAssistant}
+              loading={loadingAssistants}
+              error={assistantError}
             />
           ) : selected === 'profile' ? (
             <SettingsProfile

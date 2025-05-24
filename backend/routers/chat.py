@@ -1,7 +1,9 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Body
 from typing import Dict, List
-from agents.primary_agent import get_primary_agent
+from backend.agents.primary_agent import get_primary_agent
 import json
+from backend.data_services.mongo.chat_repository import create_chat, add_message, list_chats, get_chat_by_id
+from bson import ObjectId
 
 router = APIRouter()
 
@@ -111,4 +113,39 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         await websocket.send_json({
             "type": "error",
             "content": str(e)
-        }) 
+        })
+
+def to_str_id(doc):
+    if doc and "_id" in doc:
+        doc["_id"] = str(doc["_id"])
+    if doc and "user_id" in doc and isinstance(doc["user_id"], ObjectId):
+        doc["user_id"] = str(doc["user_id"])
+    if doc and "assistant_id" in doc and isinstance(doc["assistant_id"], ObjectId):
+        doc["assistant_id"] = str(doc["assistant_id"])
+    if doc and "messages" in doc:
+        for m in doc["messages"]:
+            if "_id" in m and isinstance(m["_id"], ObjectId):
+                m["_id"] = str(m["_id"])
+    return doc
+
+@router.post("/chats")
+def api_create_chat(chat: dict = Body(...)):
+    new_chat = create_chat(chat)
+    return to_str_id(new_chat)
+
+@router.post("/chats/{chat_id}/messages")
+def api_add_message(chat_id: str, message: dict = Body(...)):
+    updated_chat = add_message(chat_id, message)
+    return to_str_id(updated_chat)
+
+@router.get("/chats")
+def api_list_chats():
+    chats = list_chats()
+    return {"chats": [to_str_id(c) for c in chats]}
+
+@router.get("/chats/{chat_id}")
+def api_get_chat(chat_id: str):
+    chat = get_chat_by_id(chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    return to_str_id(chat) 

@@ -19,106 +19,12 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import BotIcon from '@mui/icons-material/SmartToy';
 import { websocketService } from '../services/websocket';
-import CfeedBubble from '../components/CfeedBubble';
-
-// Dummy history data with additional fields for ChatScope
-const dummyHistory = [
-  { 
-    id: 0,
-    sender: 'AI Assistant',
-    message: 'How can I help you today?', 
-    time: '09:00',
-    assistantName: 'Rose',
-    assistantType: 'Sales assistant' 
-  },
-  { 
-    id: 1,
-    sender: 'You', 
-    message: 'Show me my schedule.', 
-    time: '09:01',
-    assistantName: 'Rose',
-    assistantType: 'Sales assistant'
-  },
-  { 
-    id: 2,
-    sender: 'AI Assistant', 
-    message: 'Here is your schedule for today...', 
-    time: '09:01',
-    assistantName: 'Alex',
-    assistantType: 'General assistant'
-  },
-  { 
-    id: 3,
-    sender: 'You', 
-    message: 'Remind me to call John at 2pm.', 
-    time: '09:02',
-    assistantName: 'Mia',
-    assistantType: 'Customer support'
-  },
-  { 
-    id: 4,
-    sender: 'AI Assistant', 
-    message: 'Reminder set for 2pm to call John.', 
-    time: '09:02',
-    assistantName: 'Mia',
-    assistantType: 'Customer support'
-  },
-];
-
-// Available AI assistants
-const assistants = [
-  { name: 'Rose', desc: 'Sales assistant', color: '#FF7125' },
-  { name: 'Alex', desc: 'General assistant', color: '#3C4884' },
-  { name: 'Mia', desc: 'Customer support', color: '#21a300' },
-];
-
-// Initial messages per conversation (moved directly into state)
-const initialMessages = [
-  [
-    { sender: 'AI Assistant', text: 'How can I help you today?', position: 'incoming', time: '09:00', type: 'text' },
-    { sender: 'You', text: 'Show me my schedule.', position: 'outgoing', time: '09:01', type: 'text' },
-    { sender: 'AI Assistant', text: 'Here is your schedule for today...', position: 'incoming', time: '09:01', type: 'text' },
-    {
-      sender: 'AI Assistant',
-      type: 'cfeed',
-      cfeedType: 'action',
-      position: 'incoming',
-      time: '09:02',
-      content: {
-        eventTitle: 'Lorem Ipsum',
-        date: 'mm/dd/yyyy',
-        time: '00:00',
-        description: 'Lorem ipsum kjdd alk sdjds...',
-        guests: 'Peter Thiel',
-      },
-      status: 'pending',
-    },
-    {
-      sender: 'AI Assistant',
-      type: 'cfeed',
-      cfeedType: 'messaging',
-      position: 'incoming',
-      time: '09:03',
-      content: {
-        text: 'Here is a draft message for your review before sending.'
-      },
-      status: 'pending',
-    },
-  ],
-  [
-    { sender: 'You', text: 'Remind me to call John at 2pm.', position: 'outgoing', time: '09:02', type: 'text' },
-    { sender: 'AI Assistant', text: 'Reminder set for 2pm to call John.', position: 'incoming', time: '09:02', type: 'text' },
-  ],
-  [],
-  [],
-  [],
-];
 
 const Chat = () => {
   const [selected, setSelected] = useState(null);
   const [input, setInput] = useState('');
-  const [messagesPerChat, setMessagesPerChat] = useState(initialMessages);
-  const [selectedAssistant, setSelectedAssistant] = useState(assistants[0]);
+  const [messagesPerChat, setMessagesPerChat] = useState([[]]);
+  const [selectedAssistant] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [currentMessages, setCurrentMessages] = useState([]);
@@ -217,73 +123,6 @@ const Chat = () => {
     setInput('');
   };
 
-  // Handle assistant selection from dropdown
-  const handleAssistantSelect = (assistant) => {
-    setSelectedAssistant(assistant);
-    setDropdownOpen(false);
-  };
-
-  // Handler for cfeed actions
-  const handleCfeedApprove = (msgIdx) => {
-    setMessagesPerChat(prev => {
-      const updated = [...prev];
-      const chatMsgs = [...(updated[selected] || [])];
-      const cfeedMsg = chatMsgs[msgIdx];
-      if (cfeedMsg && cfeedMsg.type === 'cfeed') {
-        // Add as normal outgoing message
-        chatMsgs.splice(msgIdx, 1, {
-          sender: 'You',
-          text: cfeedMsg.cfeedType === 'messaging' ? cfeedMsg.content.text :
-            `Event: ${cfeedMsg.content.eventTitle}\nDate: ${cfeedMsg.content.date} ${cfeedMsg.content.time}\nDescription: ${cfeedMsg.content.description}\nGuests: ${cfeedMsg.content.guests}`,
-          position: 'outgoing',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: 'text',
-        });
-      }
-      updated[selected] = chatMsgs;
-      return updated;
-    });
-    setEditingCfeedIdx(null);
-  };
-
-  const handleCfeedEdit = (msgIdx) => {
-    setEditingCfeedIdx(msgIdx);
-  };
-
-  const handleCfeedDecline = (msgIdx) => {
-    setMessagesPerChat(prev => {
-      const updated = [...prev];
-      const chatMsgs = [...(updated[selected] || [])];
-      chatMsgs.splice(msgIdx, 1);
-      updated[selected] = chatMsgs;
-      return updated;
-    });
-    setEditingCfeedIdx(null);
-  };
-
-  const handleCfeedSaveEdit = (msgIdx, newContent) => {
-    setMessagesPerChat(prev => {
-      const updated = [...prev];
-      const chatMsgs = [...(updated[selected] || [])];
-      // Send as outgoing message and remove cfeed
-      chatMsgs.splice(msgIdx, 1, {
-        sender: 'You',
-        text: newContent.text ||
-          `Event: ${newContent.eventTitle}\nDate: ${newContent.date} ${newContent.time}\nDescription: ${newContent.description}\nGuests: ${newContent.guests}`,
-        position: 'outgoing',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        type: 'text',
-      });
-      updated[selected] = chatMsgs;
-      return updated;
-    });
-    setEditingCfeedIdx(null);
-  };
-
-  const handleCfeedCancelEdit = () => {
-    setEditingCfeedIdx(null);
-  };
-
   return (
     <Box className="page-container">
       <Box className="chat-grid-root">
@@ -301,20 +140,11 @@ const Chat = () => {
               role="button"
               aria-label="Change assistant"
             >
-              {selectedAssistant.name}
+              {selectedAssistant ? selectedAssistant.name : 'Select Assistant'}
             </div>
             {dropdownOpen && (
               <div className="assistant-dropdown">
-                {assistants.map((a) => (
-                  <div
-                    key={a.name}
-                    className="assistant-dropdown-option"
-                    onClick={() => handleAssistantSelect(a)}
-                  >
-                    <div className="assistant-dropdown-name">{a.name}</div>
-                    <div className="assistant-dropdown-desc">{a.desc}</div>
-                  </div>
-                ))}
+                {/* Assistant options will be loaded from backend in the next step */}
                 <div className="assistant-dropdown-add">
                   <AddCircleOutlineIcon className="plus-icon" fontSize="small" />
                   <span className="assistant-dropdown-add-text">Add Assistant</span>
@@ -327,17 +157,7 @@ const Chat = () => {
         {/* Second row: Chat history sidebar and main chat area */}
         <Box className="chat-grid-history">
             <Box className="chat-sidebar-list">
-              {dummyHistory.map((conv, idx) => (
-                <Box
-                  key={idx}
-                  className={`conversation-list-item chat-history-item${selected === idx ? ' selected' : ''}`}
-                  onClick={() => setSelected(idx)}
-                >
-                  <div className="chat-history-sender">{conv.sender}</div>
-                  <div className="chat-history-message">{conv.message}</div>
-                  <div className="chat-history-time">{conv.time}</div>
-                </Box>
-              ))}
+              {/* No chat history for now */}
             </Box>
         </Box>
 
@@ -441,12 +261,9 @@ const Chat = () => {
                   maxWidth: '600px',
                   textAlign: 'center'
                 }}>
-
-                  
                   <div style={{ color: 'var(--orange-crayola)', fontWeight: 600, fontSize: '1.5rem' }}>
-                    <p> What can {selectedAssistant.name} help you with?</p> 
+                    <p> What can {selectedAssistant ? selectedAssistant.name : 'the assistant'} help you with?</p> 
                   </div>
-                  
                   <div style={{ 
                     display: 'flex', 
                     backgroundColor: 'rgba(39, 45, 79, 0.85)',
@@ -473,8 +290,8 @@ const Chat = () => {
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && input.trim()) {
                           // Start a new chat when no chat is selected
-                          const newChatIndex = dummyHistory.length;
-                          setSelected(newChatIndex);
+                          // No dummyHistory, so just setSelected(0) for now
+                          setSelected(0);
                           handleSend(input);
                         }
                       }}
@@ -483,9 +300,7 @@ const Chat = () => {
                     <SendIcon 
                       onClick={() => {
                         if (input.trim()) {
-                          // Start a new chat when no chat is selected
-                          const newChatIndex = dummyHistory.length;
-                          setSelected(newChatIndex);
+                          setSelected(0);
                           handleSend(input);
                         }
                       }}

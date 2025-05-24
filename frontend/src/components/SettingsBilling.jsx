@@ -18,6 +18,8 @@ import { loadStripe } from '@stripe/stripe-js';
 import visaLogo from '../assets/visa.svg';
 import mastercardLogo from '../assets/mastercard.svg';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
 
 // Initialize Stripe
 const stripePromise = loadStripe('your_publishable_key'); // Replace with your actual key
@@ -53,7 +55,7 @@ const AddPaymentMethodForm = ({ onSuccess, onCancel }) => {
         onSuccess(paymentMethod);
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      setError(err.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -134,103 +136,171 @@ const SettingsBilling = ({
   selectedPlan,
   setSelectedPlan,
   getPlanPrice,
-  paymentMethods: initialPaymentMethods,
-  handleSetDefault,
-  handleAddNew,
-  invoiceHistory
+  user,
+  accessToken
 }) => {
   const [showAddPaymentForm, setShowAddPaymentForm] = useState(false);
-  const [paymentMethods, setPaymentMethods] = useState(initialPaymentMethods);
-  
-  // Sort payment methods to keep default at the top
-  useEffect(() => {
-    if (initialPaymentMethods) {
-      const sortedMethods = [...initialPaymentMethods].sort((a, b) => {
-        if (a.default) return -1;
-        if (b.default) return 1;
-        return 0;
-      });
-      setPaymentMethods(sortedMethods);
-    }
-  }, [initialPaymentMethods]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [upgrading, setUpgrading] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [settingDefault, setSettingDefault] = useState(null); // index of card being set as default
 
-  // Handler for setting a payment method as default
-  const handleSetDefaultMethod = (idx) => {
-    // Call the parent handler first
-    handleSetDefault(idx);
-    
-    // Update local state to reorder cards
-    const updatedMethods = paymentMethods.map((method, i) => ({
-      ...method,
-      default: i === idx
-    }));
-    
-    // Sort methods to put default at the top
-    const sortedMethods = updatedMethods.sort((a, b) => {
-      if (a.default) return -1;
-      if (b.default) return 1;
-      return 0;
-    });
-    
-    setPaymentMethods(sortedMethods);
-  };
-  
-  // Handler for removing a payment method
-  const handleRemovePaymentMethod = (idx) => {
-    // In a real app, you would call your backend to delete the payment method
-    // For demo, we'll just remove it from our local state
-    const updatedMethods = [...paymentMethods];
-    updatedMethods.splice(idx, 1);
-    
-    setPaymentMethods(updatedMethods);
-    
-    // You would typically also add a confirmation dialog in production
-    console.log('Removed payment method at index:', idx);
-  };
-  
-  // Handle successful payment method addition
-  const handlePaymentMethodSuccess = (paymentMethod) => {
-    // You would typically send this payment method to your backend
-    console.log('New payment method added:', paymentMethod);
-    
-    // Create a new payment method object with the Stripe data
-    const newMethod = {
-      brand: paymentMethod.card.brand,
-      last4: paymentMethod.card.last4,
-      exp: `${paymentMethod.card.exp_month}/${paymentMethod.card.exp_year}`,
-      default: paymentMethods.length === 0 // Set as default if this is the first card
-    };
-    
-    // Add to local state
-    const updatedMethods = [...paymentMethods];
-    
-    // If this is the first card or marked as default
-    if (newMethod.default) {
-      // Update all cards to not be default
-      updatedMethods.forEach(method => {
-        method.default = false;
+  // Fetch billing data on mount
+  const fetchBilling = async () => {
+    if (!user?.id || !accessToken) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // Plan (not used directly, but could be used for current plan info)
+      await fetch('http://localhost:8000/billing/plan', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
       });
+      // Payment Methods
+      const pmRes = await fetch('http://localhost:8000/billing/payment-methods', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      const pmData = await pmRes.json();
+      setPaymentMethods(pmData.payment_methods || []);
+      // Invoices
+      const invRes = await fetch('http://localhost:8000/billing/invoices', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      const invData = await invRes.json();
+      setInvoices(invData.invoices || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load billing data.');
     }
-    
-    // Add the new method
-    updatedMethods.push(newMethod);
-    
-    // Sort to keep default at top
-    const sortedMethods = updatedMethods.sort((a, b) => {
-      if (a.default) return -1;
-      if (b.default) return 1;
-      return 0;
-    });
-    
-    setPaymentMethods(sortedMethods);
-    
-    // Call parent handler
-    handleAddNew(newMethod);
-    
-    // Close the form
-    setShowAddPaymentForm(false);
+    setLoading(false);
   };
-  
+  useEffect(() => { fetchBilling(); /* eslint-disable-next-line */ }, [user?.id, accessToken]);
+
+  // Add payment method
+  const handlePaymentMethodSuccess = async (paymentMethod) => {
+    if (!user?.id || !accessToken) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await fetch('http://localhost:8000/billing/payment-method', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ payment_method_id: paymentMethod.id, user_id: user.id })
+      });
+      setSuccess('Payment method added!');
+      await fetchBilling();
+    } catch (err) {
+      setError(err.message || 'Failed to add payment method.');
+    }
+    setShowAddPaymentForm(false);
+    setLoading(false);
+  };
+
+  // Remove payment method
+  const handleRemovePaymentMethod = async (idx) => {
+    if (!user?.id || !accessToken) return;
+    const pm = paymentMethods[idx];
+    if (!pm?.id) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await fetch(`http://localhost:8000/billing/payment-method/${pm.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      setSuccess('Payment method removed.');
+      await fetchBilling();
+    } catch (err) {
+      setError(err.message || 'Failed to remove payment method.');
+    }
+    setLoading(false);
+  };
+
+  // Set default payment method
+  const handleSetDefault = async (idx) => {
+    if (!user?.id || !accessToken) return;
+    const pm = paymentMethods[idx];
+    if (!pm?.id) return;
+    setSettingDefault(idx);
+    setError(null);
+    setSuccess(null);
+    try {
+      await fetch('http://localhost:8000/billing/set-default-payment-method', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ payment_method_id: pm.id })
+      });
+      setSuccess('Default payment method updated.');
+      await fetchBilling();
+    } catch (err) {
+      setError(err.message || 'Failed to set default payment method.');
+    }
+    setSettingDefault(null);
+  };
+
+  // Upgrade/downgrade plan
+  const handleUpgradePlan = async (planIdx) => {
+    if (!user?.id || !accessToken) return;
+    setUpgrading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const plan = plans[planIdx];
+      await fetch('http://localhost:8000/billing/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ price_id: plan.stripe_price_id, user_id: user.id })
+      });
+      setSuccess('Plan updated!');
+      await fetchBilling();
+    } catch (err) {
+      setError(err.message || 'Failed to update plan.');
+    }
+    setUpgrading(false);
+  };
+
+  // Cancel subscription
+  const handleCancelSubscription = async () => {
+    if (!user?.id || !accessToken) return;
+    setCanceling(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await fetch('http://localhost:8000/billing/cancel', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      setSuccess('Subscription canceled.');
+      await fetchBilling();
+    } catch (err) {
+      setError(err.message || 'Failed to cancel subscription.');
+    }
+    setCanceling(false);
+  };
+
+  // Prepare invoice data for DataGrid
+  const invoiceRows = invoices.map((inv, index) => ({
+    id: index,
+    date: new Date(inv.created * 1000).toLocaleDateString(),
+    number: inv.number,
+    amount: `$${(inv.amount_paid / 100).toFixed(2)}`,
+    status: inv.status,
+    url: inv.invoice_pdf || '#'
+  }));
+
   // DataGrid columns for invoice history
   const columns = [
     { 
@@ -289,15 +359,11 @@ const SettingsBilling = ({
     },
   ];
 
-  // Prepare invoice data for DataGrid
-  const invoiceRows = invoiceHistory.map((inv, index) => ({
-    id: index, // Required by DataGrid
-    ...inv,
-    download: inv.url // This makes the URL available to renderCell
-  }));
-  
   return (
     <Box className="page-container-inner">
+      {loading && <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}><CircularProgress /></Box>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
       <Typography variant="h4" sx={{ 
         mb: 3, 
         color: 'var(--orange-crayola)',
@@ -331,6 +397,7 @@ const SettingsBilling = ({
               checked={billYearly}
               onChange={e => setBillYearly(e.target.checked)}
               className="settings-billing-plan-toggle"
+              disabled={loading}
             />
             {billYearly && (
               <Typography variant="caption" sx={{ 
@@ -347,7 +414,9 @@ const SettingsBilling = ({
         </Box>
         
         <Box className="settings-billing-plans-row" >
-          {plans.map((plan, idx) => (
+          {plans.length === 0 ? (
+            <Typography color="var(--bone)">No plans available.</Typography>
+          ) : plans.map((plan, idx) => (
             <Box 
               key={idx} 
               className={`settings-billing-plan-card${selectedPlan === idx ? ' selected' : ''}`}
@@ -429,8 +498,14 @@ const SettingsBilling = ({
                     mb: 1,
                     backgroundColor: 'var(--orange-crayola)',
                   }}
+                  onClick={() => handleUpgradePlan(idx)}
+                  disabled={
+                    upgrading || loading || selectedPlan === idx ||
+                    (idx < selectedPlan && selectedPlan === 0) || // Can't downgrade from free
+                    (idx > selectedPlan && selectedPlan === plans.length - 1) // Can't upgrade from last
+                  }
                 >
-                  Upgrade
+                  {idx > selectedPlan ? 'Upgrade' : 'Downgrade'}
                 </Button>
               )}
               
@@ -500,7 +575,9 @@ const SettingsBilling = ({
           flexDirection: 'column',
           gap: 2
         }}>
-          {paymentMethods.map((pm, idx) => (
+          {paymentMethods.length === 0 ? (
+            <Typography color="var(--bone)">No payment methods added yet.</Typography>
+          ) : paymentMethods.map((pm, idx) => (
             <Box 
               key={idx} 
               className={`settings-payment-method-card${pm.default ? ' selected' : ''}`}
@@ -572,7 +649,7 @@ const SettingsBilling = ({
                 
                 <Radio
                   checked={pm.default}
-                  onChange={() => handleSetDefaultMethod(idx)}
+                  onChange={() => handleRemovePaymentMethod(idx)}
                   className="settings-payment-method-radio"
                   sx={{
                     '&.Mui-checked': {
@@ -603,15 +680,16 @@ const SettingsBilling = ({
                 {!pm.default && (
                   <Button 
                     className="settings-payment-method-action button button-outlined" 
-                    onClick={() => handleSetDefaultMethod(idx)}
+                    onClick={() => handleSetDefault(idx)}
                     variant="outlined"
                     size="small"
+                    disabled={settingDefault === idx || loading}
                     sx={{ 
                       color: 'var(--orange-crayola)',
                       borderColor: 'var(--orange-crayola)',
                     }}
                   >
-                    Set as default
+                    {settingDefault === idx ? <CircularProgress size={16} sx={{ color: 'var(--orange-crayola)', mr: 1 }} /> : 'Set as default'}
                   </Button>
                 )}
                 <Button 
@@ -622,6 +700,7 @@ const SettingsBilling = ({
                     color: 'var(--bone)',
                     borderColor: 'var(--marian-blue)',
                   }}
+                  disabled
                 >
                   Edit
                 </Button>
@@ -677,6 +756,7 @@ const SettingsBilling = ({
                   borderColor: 'var(--orange-crayola)',
                 }
               }}
+              disabled={loading}
             >
               + Add new payment method
             </Button>
@@ -698,53 +778,70 @@ const SettingsBilling = ({
         >
           Billing History & Invoices
         </Typography>
-        
         <Box sx={{ height: 400, width: '100%' }}>
-          <DataGrid
-            rows={invoiceRows}
-            columns={columns}
-            pageSize={5}
-            rowsPerPageOptions={[5, 10, 20]}
-            disableSelectionOnClick
-            autoHeight
-            sx={{
-              backgroundColor: 'rgba(39, 45, 79, 0.5)',
-              color: 'var(--white)',
-              border: 'none',
-              borderRadius: '8px',
-              '& .MuiDataGrid-cell': {
-                borderColor: 'rgba(255, 255, 255, 0.08)'
-              },
-              '& .MuiDataGrid-columnHeaders': {
-                backgroundColor: 'rgba(39, 45, 79, 0.9)',
-                color: 'var(--orange-crayola)',
-                fontWeight: 600
-              },
-              '& .MuiDataGrid-columnSeparator': {
-                display: 'none'
-              },
-              '& .MuiDataGrid-menuIconButton': {
-                color: 'var(--white)'
-              },
-              '& .MuiDataGrid-sortIcon': {
-                color: 'var(--white)'
-              },
-              '& .MuiDataGrid-row:hover': {
-                backgroundColor: 'rgba(255, 113, 37, 0.08)'
-              },
-              '& .MuiDataGrid-footer': {
-                color: 'var(--bone)',
-              },
-              '& .MuiTablePagination-root': {
-                color: 'var(--bone)',
-              },
-              '& .MuiTablePagination-actions button': {
-                color: 'var(--bone)',
-              }
-            }}
-          />
+          {invoices.length === 0 ? (
+            <Typography color="var(--bone)">No invoices found.</Typography>
+          ) : (
+            <DataGrid
+              rows={invoiceRows}
+              columns={columns}
+              pageSize={5}
+              rowsPerPageOptions={[5, 10, 20]}
+              disableSelectionOnClick
+              autoHeight
+              sx={{
+                backgroundColor: 'rgba(39, 45, 79, 0.5)',
+                color: 'var(--white)',
+                border: 'none',
+                borderRadius: '8px',
+                '& .MuiDataGrid-cell': {
+                  borderColor: 'rgba(255, 255, 255, 0.08)'
+                },
+                '& .MuiDataGrid-columnHeaders': {
+                  backgroundColor: 'rgba(39, 45, 79, 0.9)',
+                  color: 'var(--orange-crayola)',
+                  fontWeight: 600
+                },
+                '& .MuiDataGrid-columnSeparator': {
+                  display: 'none'
+                },
+                '& .MuiDataGrid-menuIconButton': {
+                  color: 'var(--white)'
+                },
+                '& .MuiDataGrid-sortIcon': {
+                  color: 'var(--white)'
+                },
+                '& .MuiDataGrid-row:hover': {
+                  backgroundColor: 'rgba(255, 113, 37, 0.08)'
+                },
+                '& .MuiDataGrid-footer': {
+                  color: 'var(--bone)',
+                },
+                '& .MuiTablePagination-root': {
+                  color: 'var(--bone)',
+                },
+                '& .MuiTablePagination-actions button': {
+                  color: 'var(--bone)',
+                }
+              }}
+            />
+          )}
         </Box>
       </Box>
+      {/* Cancel subscription button at the very bottom */}
+      {selectedPlan !== 0 && (
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+          <Button
+            variant="outlined"
+            color="error"
+            sx={{ minWidth: 220, fontWeight: 600, fontSize: '1.1rem' }}
+            onClick={handleCancelSubscription}
+            disabled={canceling || loading}
+          >
+            {canceling ? <CircularProgress size={20} sx={{ color: 'red', mr: 1 }} /> : 'Cancel Subscription'}
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 };

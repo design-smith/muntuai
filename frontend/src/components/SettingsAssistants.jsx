@@ -6,7 +6,6 @@ import { CheckboxGroup, Switch } from './SelectionElements';
 
 const SettingsAssistants = ({
   assistants,
-  setAssistants,
   openAddModal,
   openEditModal,
   assistantModal,
@@ -18,26 +17,42 @@ const SettingsAssistants = ({
   typeOptions,
   channelOptions,
   handleChannelsChange,
-  handleSaveAssistant
+  handleSaveAssistant,
+  handleDeleteAssistant,
+  loading,
+  error
 }) => (
   <div className="settings-assistants-root">
     <h2>Assistants</h2>
     <MuiButton className="settings-assistants-add-btn" onClick={openAddModal}>+ Add New Assistant</MuiButton>
-    <div className="settings-assistants-list">
-      {assistants.map((a, idx) => (
-        <AssistantCard
-          key={a.name + idx}
-          name={a.name}
-          status={a.status}
-          responsibilities={a.responsibilities}
-          channels={a.channels}
-          created={a.created}
-          isActive={a.isActive}
-          onEdit={() => openEditModal(idx)}
-          onToggle={() => setAssistants(prev => prev.map((asst, i) => i === idx ? { ...asst, isActive: !asst.isActive, status: asst.isActive ? 'Inactive' : 'Active' } : asst))}
-        />
-      ))}
-    </div>
+    {loading ? (
+      <div style={{ margin: '2rem', textAlign: 'center' }}>Loading assistants...</div>
+    ) : error ? (
+      <div style={{ color: 'red', margin: '2rem', textAlign: 'center' }}>{error}</div>
+    ) : (
+      <div className="settings-assistants-list">
+        {assistants.map((a, idx) => (
+          <div key={a._id || a.name + idx} style={{ position: 'relative' }}>
+            <AssistantCard
+              name={a.name}
+              status={a.isActive ? 'Active' : 'Inactive'}
+              responsibilities={a.responsibilities}
+              channels={a.channels}
+              created={a.created}
+              isActive={a.isActive}
+              onEdit={() => openEditModal(idx)}
+            />
+            <MuiButton
+              size="small"
+              style={{ position: 'absolute', top: 8, right: 8, color: '#FF7125' }}
+              onClick={() => handleDeleteAssistant(idx)}
+            >
+              Delete
+            </MuiButton>
+          </div>
+        ))}
+      </div>
+    )}
     <Dialog open={assistantModal.open} onClose={closeAssistantModal} className="settings-assistant-dialog">
       <DialogTitle className="settings-assistant-dialog-title">
         {assistantModal.mode === 'add' ? 'Add New Assistant' : 'Edit Assistant'}
