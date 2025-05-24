@@ -105,6 +105,7 @@ except Exception as e:
 
 @app.get("/")
 async def root():
+    
     return {"message": "Welcome to Muntu AI API", "status": "running"}
 
 @app.get("/health")
