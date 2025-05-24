@@ -9,7 +9,7 @@ lerna-debug.log*
 __pycache__
 .cache
 venv
-
+.env
 node_modules
 dist
 dist-ssr
