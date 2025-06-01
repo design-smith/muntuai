@@ -80,19 +80,31 @@ def get_embedding_with_cache(text, embedding_service):
     cached_embedding = embedding_cache.get(text_hash)
     if cached_embedding is not None:
         return cached_embedding
-    embedding = embedding_service.get_embedding(text)
+    embedding = embedding_service.generate_embedding(text)
     embedding_cache.set(text_hash, embedding)
     return embedding
 
-# --- Query Result Caching ---
+# --- High-level Operation Cache ---
+def get_operation_cache(key):
+    return redis_cache.get(key)
+
+def set_operation_cache(key, value, ttl=600):
+    redis_cache.set(key, value, ttl=ttl)
+
+# --- Cypher Query Result Caching ---
 def execute_query_with_cache(query, parameters, graph_db):
     import pickle
-    query_hash = str(hash(query + pickle.dumps(parameters)))
-    cache_key = f"query:{query_hash}"
+    # Only cache if this is a Cypher query
+    if not query.strip().lower().startswith((
+        "match", "call", "with", "unwind", "create", "merge", "set", "delete", "remove", "return", "optional"
+    )):
+        raise ValueError("execute_query_with_cache called with non-Cypher query string.")
+    query_hash = str(hash(query + pickle.dumps(parameters).hex()))
+    cache_key = f"cypher_query:{query_hash}"
     cached_result = redis_cache.get(cache_key)
     if cached_result is not None:
         return cached_result
-    result = graph_db.execute_query(query, parameters)
+    result = graph_db.run_query(query, parameters)
     if is_cacheable_query(query):
         redis_cache.set(cache_key, result, ttl=calculate_ttl(query))
     return result
@@ -316,7 +328,10 @@ class GraphRAGEngine:
                     rel_props=rel.get("properties", {})
                 )
         # Use embedding cache
-        embedding = get_embedding_with_cache(text, self.embedding_service) if text else get_embedding_with_cache(metadata.get('name', ''), self.embedding_service)
+        if text:
+            embedding = get_embedding_with_cache(text, self.embedding_service)
+        else:
+            embedding = get_embedding_with_cache(metadata.get('name', ''), self.embedding_service)
         self.vector_db.upsert_embedding(
             collection=self.collection_name,
             id=doc_id,
@@ -349,18 +364,15 @@ class GraphRAGEngine:
         filters: Optional[Dict] = None,
         max_hops: int = 2
     ) -> Dict[str, Any]:
-        # Use query result cache for hybrid search
-        query = f"hybrid_search:{query_text}:{filters}:{max_hops}"
-        parameters = {"query_text": query_text, "filters": filters, "max_hops": max_hops}
-        cached_result = execute_query_with_cache(query, parameters, self.graph_db)
+        op_key = f"hybrid_search:{query_text}:{filters}:{max_hops}"
+        cached_result = get_operation_cache(op_key)
         if cached_result is not None:
             return cached_result
         vector_results = self.semantic_search(query_text, filters)
         seed_node_ids = [result["id"] for result in vector_results]
         if not seed_node_ids:
             result = {"results": [], "context": {"nodes": [], "relationships": []}, "task_context": {}}
-            # Cache empty result
-            execute_query_with_cache(query, parameters, self.graph_db)
+            set_operation_cache(op_key, result, ttl=600)
             return result
         graph_context = self.graph_traversal.traverse_from_seeds(
             seed_node_ids=seed_node_ids,
@@ -379,8 +391,7 @@ class GraphRAGEngine:
             "context": graph_context,
             "task_context": task_context
         }
-        # Cache the result
-        execute_query_with_cache(query, parameters, self.graph_db)
+        set_operation_cache(op_key, combined_results, ttl=600)
         return combined_results
 
     def retrieve_with_context(
@@ -389,23 +400,30 @@ class GraphRAGEngine:
         filters: Optional[Dict] = None,
         max_hops: int = 2
     ) -> Dict[str, Any]:
-        # Use query result cache for retrieve_with_context
-        query = f"retrieve_with_context:{query_text}:{filters}:{max_hops}"
-        parameters = {"query_text": query_text, "filters": filters, "max_hops": max_hops}
-        cached_result = execute_query_with_cache(query, parameters, self.graph_db)
+        print(f"[DEBUG] retrieve_with_context called with query_text={query_text}, filters={filters}, max_hops={max_hops}")
+        op_key = f"retrieve_with_context:{query_text}:{filters}:{max_hops}"
+        print(f"[DEBUG] Operation cache key: {op_key}")
+        cached_result = get_operation_cache(op_key)
+        print(f"[DEBUG] Cached result: {cached_result}")
         if cached_result is not None:
+            print(f"[DEBUG] Returning cached result of type {type(cached_result)}")
             return cached_result
         hybrid_results = self.hybrid_search(
             query_text=query_text,
             filters=filters,
             max_hops=max_hops
         )
+        print(f"[DEBUG] hybrid_results: {hybrid_results}")
+        print(f"[DEBUG] Type of hybrid_results: {type(hybrid_results)}")
         formatted_results = self._format_results(hybrid_results)
-        # Cache the formatted results
-        execute_query_with_cache(query, parameters, self.graph_db)
+        print(f"[DEBUG] formatted_results: {formatted_results}")
+        print(f"[DEBUG] Type of formatted_results: {type(formatted_results)}")
+        # Cache the formatted results for this operation
+        set_operation_cache(op_key, formatted_results, ttl=600)
         return formatted_results
 
     def _format_results(self, hybrid_results: Dict[str, Any]) -> Dict[str, Any]:
+        print(f"[DEBUG] _format_results called with hybrid_results: {hybrid_results}")
         vector_results = hybrid_results["results"]
         graph_context = hybrid_results["context"]
         node_map = {node["id"]: node for node in graph_context.get("nodes", [])}
@@ -428,10 +446,14 @@ class GraphRAGEngine:
                 "document": result,
                 "connections": connected_nodes
             })
-        return {
+        print(f"[DEBUG] enriched_results: {enriched_results}")
+        result_dict = {
             "results": enriched_results,
             "graph_summary": {
                 "total_nodes": len(graph_context.get("nodes", [])),
                 "total_relationships": len(graph_context.get("relationships", []))
             }
         } 
+        print(f"[DEBUG] result_dict: {result_dict}")
+        print(f"[DEBUG] Type of result_dict: {type(result_dict)}")
+        return result_dict 

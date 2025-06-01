@@ -2,6 +2,7 @@ from .mongo_client import get_collection
 from .utils import to_objectid, to_datetime, privacy_filter
 from bson import ObjectId
 from datetime import datetime
+from backend.GraphRAG.graphrag.sync import sync_business_to_graph, delete_business_from_graph
 
 def create_business(business_data: dict):
     businesses = get_collection("businesses")
@@ -13,7 +14,9 @@ def create_business(business_data: dict):
     business_data["created_at"] = business_data.get("created_at", datetime.utcnow())
     business_data["updated_at"] = datetime.utcnow()
     result = businesses.insert_one(business_data)
-    return businesses.find_one({"_id": result.inserted_id})
+    business_doc = businesses.find_one({"_id": result.inserted_id})
+    sync_business_to_graph(business_doc)
+    return business_doc
 
 def get_business_by_id(business_id):
     businesses = get_collection("businesses")
@@ -32,13 +35,17 @@ def update_business(business_id, update_data: dict):
             update_data[k] = to_datetime(update_data[k])
     update_data["updated_at"] = datetime.utcnow()
     businesses.update_one({"_id": business_id}, {"$set": update_data})
-    return businesses.find_one({"_id": business_id})
+    business_doc = businesses.find_one({"_id": business_id})
+    sync_business_to_graph(business_doc)
+    return business_doc
 
 def delete_business(business_id):
     businesses = get_collection("businesses")
     if isinstance(business_id, str):
         business_id = ObjectId(business_id)
-    return businesses.delete_one({"_id": business_id})
+    result = businesses.delete_one({"_id": business_id})
+    delete_business_from_graph(business_id)
+    return result
 
 def list_businesses(filter_dict=None, user_id=None, limit=100):
     businesses = get_collection("businesses")

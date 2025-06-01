@@ -2,6 +2,7 @@ from .mongo_client import get_collection
 from .utils import to_datetime, privacy_filter
 from bson import ObjectId
 from datetime import datetime
+from backend.GraphRAG.graphrag.sync import sync_task_to_graph, delete_task_from_graph
 
 def create_task(task_data: dict):
     tasks = get_collection("tasks")
@@ -11,7 +12,9 @@ def create_task(task_data: dict):
     task_data["created_at"] = task_data.get("created_at", datetime.utcnow())
     task_data["updated_at"] = datetime.utcnow()
     result = tasks.insert_one(task_data)
-    return tasks.find_one({"_id": result.inserted_id})
+    task_doc = tasks.find_one({"_id": result.inserted_id})
+    sync_task_to_graph(task_doc)
+    return task_doc
 
 def get_task_by_id(task_id):
     tasks = get_collection("tasks")
@@ -28,13 +31,17 @@ def update_task(task_id, update_data: dict):
             update_data[k] = to_datetime(update_data[k])
     update_data["updated_at"] = datetime.utcnow()
     tasks.update_one({"_id": task_id}, {"$set": update_data})
-    return tasks.find_one({"_id": task_id})
+    task_doc = tasks.find_one({"_id": task_id})
+    sync_task_to_graph(task_doc)
+    return task_doc
 
 def delete_task(task_id):
     tasks = get_collection("tasks")
     if isinstance(task_id, str):
         task_id = ObjectId(task_id)
-    return tasks.delete_one({"_id": task_id})
+    result = tasks.delete_one({"_id": task_id})
+    delete_task_from_graph(task_id)
+    return result
 
 def list_tasks(filter_dict=None, user_id=None, limit=100):
     tasks = get_collection("tasks")

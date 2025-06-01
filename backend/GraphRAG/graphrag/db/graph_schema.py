@@ -7,7 +7,9 @@ NODE_TYPES = {
         "name": "string",
         "email": "string",
         "created_at": "datetime",
-        "profile": "json"
+        "profile": "json",
+        "first_name": "string",
+        "last_name": "string"
     },
     "Person": {
         "id": "string",
@@ -19,7 +21,8 @@ NODE_TYPES = {
         "first_contact_date": "datetime",
         "last_contact_date": "datetime",
         "source": "string",
-        "embedding_id": "string"
+        "embedding_id": "string",
+        "created_at": "datetime"
     },
     "Organization": {
         "id": "string",
@@ -28,7 +31,8 @@ NODE_TYPES = {
         "website": "string",
         "description": "string",
         "location": "string",
-        "embedding_id": "string"
+        "embedding_id": "string",
+        "created_at": "datetime"
     },
     "Message": {
         "id": "string",
@@ -43,7 +47,8 @@ NODE_TYPES = {
         "intent": "string",
         "is_actionable": "boolean",
         "reply_to_id": "string",
-        "embedding_id": "string"
+        "embedding_id": "string",
+        "created_at": "datetime"
     },
     "Event": {
         "id": "string",
@@ -52,7 +57,8 @@ NODE_TYPES = {
         "start_time": "datetime",
         "end_time": "datetime",
         "location": "string",
-        "embedding_id": "string"
+        "embedding_id": "string",
+        "created_at": "datetime"
     },
     "Location": {
         "id": "string",
@@ -81,7 +87,8 @@ NODE_TYPES = {
         "creator_id": "string",
         "is_actionable": "boolean",
         "reminder_date": "datetime",
-        "embedding_id": "string"
+        "embedding_id": "string",
+        "created_at": "datetime"
     },
     "Channel": {
         "id": "string",
@@ -93,7 +100,8 @@ NODE_TYPES = {
         "last_synced": "datetime",
         "credentials_id": "string",
         "settings": "json",
-        "embedding_id": "string"
+        "embedding_id": "string",
+        "created_at": "datetime"
     },
     "Thread": {
         "id": "string",
@@ -105,7 +113,8 @@ NODE_TYPES = {
         "external_id": "string",
         "participants_count": "int",
         "message_count": "int",
-        "embedding_id": "string"
+        "embedding_id": "string",
+        "created_at": "datetime"
     }
 }
 

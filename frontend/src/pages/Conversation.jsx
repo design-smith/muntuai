@@ -188,7 +188,7 @@ const Conversations = () => {
       position: 'outgoing',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-
+    console.log("Sending message:", newMessage);
     // Update messages state
     setMessages([...messages, newMessage]);
 

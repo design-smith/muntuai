@@ -2,26 +2,27 @@ class WebSocketService {
     constructor() {
         this.socket = null;
         this.messageHandlers = new Set();
-        this.clientId = Math.random().toString(36).substring(7);
+        this.currentChatId = null;
     }
 
-    connect() {
-        const wsUrl = `ws://localhost:8000/api/ws/chat/${this.clientId}`;
+    connectToChat(chatId) {
+        this.disconnect();
+        this.currentChatId = chatId;
+        const wsUrl = `ws://localhost:8000/api/ws/chat/${chatId}`;
         this.socket = new WebSocket(wsUrl);
 
         this.socket.onopen = () => {
-            console.log('WebSocket connected');
+            console.log('WebSocket connected to chat', chatId);
         };
 
         this.socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             this.messageHandlers.forEach(handler => handler(data));
+            console.log("Received message:", data);
         };
 
         this.socket.onclose = () => {
-            console.log('WebSocket disconnected');
-            // Attempt to reconnect after 5 seconds
-            setTimeout(() => this.connect(), 5000);
+            console.log('WebSocket disconnected from chat', chatId);
         };
 
         this.socket.onerror = (error) => {
@@ -49,6 +50,7 @@ class WebSocketService {
     disconnect() {
         if (this.socket) {
             this.socket.close();
+            this.socket = null;
         }
     }
 }

@@ -2,6 +2,7 @@ from .mongo_client import get_collection
 from .utils import to_objectid, to_datetime, privacy_filter
 from bson import ObjectId
 from datetime import datetime
+from backend.GraphRAG.graphrag.sync import sync_message_to_graph, delete_message_from_graph
 
 def create_message(message_data: dict):
     messages = get_collection("messages")
@@ -13,7 +14,9 @@ def create_message(message_data: dict):
     message_data["created_at"] = message_data.get("created_at", datetime.utcnow())
     message_data["updated_at"] = datetime.utcnow()
     result = messages.insert_one(message_data)
-    return messages.find_one({"_id": result.inserted_id})
+    message_doc = messages.find_one({"_id": result.inserted_id})
+    sync_message_to_graph(message_doc)
+    return message_doc
 
 def get_message_by_id(message_id):
     messages = get_collection("messages")
@@ -32,13 +35,17 @@ def update_message(message_id, update_data: dict):
             update_data[k] = to_datetime(update_data[k])
     update_data["updated_at"] = datetime.utcnow()
     messages.update_one({"_id": message_id}, {"$set": update_data})
-    return messages.find_one({"_id": message_id})
+    message_doc = messages.find_one({"_id": message_id})
+    sync_message_to_graph(message_doc)
+    return message_doc
 
 def delete_message(message_id):
     messages = get_collection("messages")
     if isinstance(message_id, str):
         message_id = ObjectId(message_id)
-    return messages.delete_one({"_id": message_id})
+    result = messages.delete_one({"_id": message_id})
+    delete_message_from_graph(message_id)
+    return result
 
 def list_messages(filter_dict=None, user_id=None, limit=100):
     messages = get_collection("messages")

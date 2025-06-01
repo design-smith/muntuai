@@ -2,6 +2,7 @@ from .mongo_client import get_collection
 from .utils import to_objectid, to_datetime, privacy_filter
 from bson import ObjectId
 from datetime import datetime
+from backend.GraphRAG.graphrag.sync import sync_contact_to_graph, delete_contact_from_graph
 
 def create_contact(contact_data: dict):
     contacts = get_collection("contacts")
@@ -13,7 +14,9 @@ def create_contact(contact_data: dict):
     contact_data["created_at"] = contact_data.get("created_at", datetime.utcnow())
     contact_data["updated_at"] = datetime.utcnow()
     result = contacts.insert_one(contact_data)
-    return contacts.find_one({"_id": result.inserted_id})
+    contact_doc = contacts.find_one({"_id": result.inserted_id})
+    sync_contact_to_graph(contact_doc)
+    return contact_doc
 
 def get_contact_by_id(contact_id):
     contacts = get_collection("contacts")
@@ -32,13 +35,17 @@ def update_contact(contact_id, update_data: dict):
             update_data[k] = to_datetime(update_data[k])
     update_data["updated_at"] = datetime.utcnow()
     contacts.update_one({"_id": contact_id}, {"$set": update_data})
-    return contacts.find_one({"_id": contact_id})
+    contact_doc = contacts.find_one({"_id": contact_id})
+    sync_contact_to_graph(contact_doc)
+    return contact_doc
 
 def delete_contact(contact_id):
     contacts = get_collection("contacts")
     if isinstance(contact_id, str):
         contact_id = ObjectId(contact_id)
-    return contacts.delete_one({"_id": contact_id})
+    result = contacts.delete_one({"_id": contact_id})
+    delete_contact_from_graph(contact_id)
+    return result
 
 def list_contacts(filter_dict=None, user_id=None, limit=100):
     contacts = get_collection("contacts")

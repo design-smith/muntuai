@@ -6,13 +6,13 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckIcon from '@mui/icons-material/Check';
 
 // Reusable Button component
-export function Button({ children, variant = 'contained', ...props }) {
+export function Button({ children, variant = 'contained', startIcon, endIcon, ...props }) {
   let className = 'button';
   if (variant === 'contained') className += ' button-contained';
   if (variant === 'outlined') className += ' button-outlined';
   if (variant === 'text') className += ' button-text';
   return (
-    <MuiButton className={className} variant={variant} {...props}>
+    <MuiButton className={className} variant={variant} startIcon={startIcon} endIcon={endIcon} {...props}>
       {children}
     </MuiButton>
   );

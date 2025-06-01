@@ -4,7 +4,7 @@
   min-height: 100vh;
   height: 100%;
   width: 100vw;
-  background: linear-gradient(to bottom, #232b3e 0%, #232b3e 60%, #ff7125 100% );
+  background:  #000000;
   background-attachment: fixed;
   background-repeat: no-repeat;
   background-size: cover;
@@ -19,8 +19,8 @@
 
   /* Color Variables */
   --orange-crayola: #FF7125ff;
-  --marian-blue: #3C4884ff;
-  --space-cadet: #272D4Fff;
+  --marian-blue: rgb(37, 38, 41);
+  --space-cadet: rgb(48, 49, 53);
   --desert-sand: #DBBAA7ff;
   --bone: #E8E0D5ff;
   --raisin-black: #202125ff;
@@ -38,7 +38,7 @@
   --bar-color: #3C4884;
   --pie-color: #3C4884;
   --channel-color-0: #899bf5;
-  --channel-color-1: #f35e5e;
+  --channel-color-1: #f3a65e;
   --channel-color-2: #f0a34b;
   --channel-color-3: #714eec;
 }
@@ -58,7 +58,8 @@ body {
 
 /* Layout */
 .page-container {
-  width: 70vw;
+  width: 80vw;
+  height: 100vh;
   max-width: 1920px;
   max-height: 100vh;
   display: flex;
@@ -83,7 +84,7 @@ body {
 
 .section {
   margin-bottom: 2rem;
-  background: rgba(39, 45, 79, 0.7);
+  background: #202020;
   padding: 1.5rem;
   border-radius: 16px;
   backdrop-filter: blur(12px);
@@ -106,9 +107,11 @@ body {
 
 /* Typography */
 .heading-primary {
-  color: var(--orange-crayola);
+  color: white;
   margin-bottom: 2rem;
+  font-size: 40px;
   font-family: 'Work Sans', sans-serif;
+  font-weight: 1000;
 }
 
 .heading-secondary {
@@ -122,12 +125,17 @@ h3 {
   font-family: 'Work Sans', sans-serif;
   font-size: 1.5rem;
 }
+h4 {
+  color: var(--white);
+  font-family: 'Work Sans', sans-serif;
+  font-size: 1.25rem;
+}
 
 /* Buttons */
 .button {
   height: 40px;
-  border-radius: 10px;
-  border: 1px solid var(--orange-crayola);
+  border-radius: 24px;
+  border: 2px solid var(--orange-crayola);
   color: var(--orange-crayola);
   background-color: transparent;
   font-family: 'Work Sans', sans-serif;
@@ -141,18 +149,21 @@ h3 {
 
 .button-contained {
   background-color: var(--orange-crayola) !important;
-  color: var(--raisin-black) !important;
+  color: white !important;
+  border-radius: 14px !important;
 }
 
 .button-outlined {
-  border-color: var(--orange-crayola) !important;
-  color: var(--orange-crayola) !important;
+  border-color: #4e4e4e !important;
+  border-radius: 14px !important;
+  color: white !important;
   background-color: transparent !important;
 }
 
 .button-outlined:hover {
-  border-color: var(--desert-sand) !important;
+  border-color: #4e4e4e !important;
   background-color: var(--desert-sand) !important;
+  color: var(--raisin-black) !important;
 }
 
 .button-text {
@@ -357,8 +368,8 @@ h3 {
 }
 
 .message-bubble-right {
-  background-color: var(--orange-crayola);
-  color: var(--raisin-black);
+  background-color: #0975fd;
+  color: white;
   padding: 0.75rem;
   border-radius: 0.5rem;
   max-width: 60%;
@@ -370,7 +381,7 @@ h3 {
 .message-item {
   margin-bottom: 1rem;
   padding: 1rem;
-  background-color: var(--space-cadet);
+  background-color: #0975fd;
   border-radius: 0.5rem;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -429,7 +440,7 @@ h3 {
 
 .sidebar {
   width: 60px;
-  background: rgba(39, 45, 79, 0.7);
+  background: #202020;
   color: var(--desert-sand);
   display: flex;
   flex-direction: column;
@@ -479,7 +490,7 @@ h3 {
   display: flex;
   align-items: center;
   padding: 1.5rem;
-  background: rgba(39, 45, 79, 0.85);
+  background: #202020;
   border-top: 1px solid rgba(255,255,255,0.18);
 }
 
@@ -512,7 +523,7 @@ h3 {
   width: 100%;
   min-height: 72px;
   padding: 1.25rem;
-  background: rgba(39, 45, 79, 0.85);
+  background: #202020;
   border-top: 1px solid rgba(255,255,255,0.18);
   box-shadow: none;
   margin-bottom: 0;
@@ -660,7 +671,7 @@ h3 {
 
 /* Channel Performance Toggle Group */
 .dashboard-toggle-group {
-  background: rgba(39, 45, 79, 0.7);
+  background: #202020;
   border-radius: 12px;
   padding: 4px;
   box-shadow: none;
@@ -792,7 +803,7 @@ h3 {
   width: 100%;
   height: 90vh;
   box-sizing: border-box;
-  background: rgba(39, 45, 79, 0.6);
+  background: #202020;
   border-radius: 0;
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -846,7 +857,7 @@ h3 {
   transition: background-color 0.2s;
 }
 .conversation-list-item:hover {
-  background-color: rgba(60, 72, 132, 0.12);
+  background-color: rgba(28, 30, 41, 0.12);
 }
 .conversation-list-item.selected {
   background-color: rgba(255, 113, 37, 0.08);
@@ -946,7 +957,7 @@ h3 {
   letter-spacing: 0.5px;
 }
 .source-email {
-  background: #3C4884;
+  background: #353536;
   color: #fff;
 }
 .source-sms {
@@ -983,10 +994,10 @@ h3 {
 }
 
 .conversation-source-select .MuiChip-root {
-  background: rgb(55, 64, 119);
+  background: #636363;
   color: var(--desert-sand);
   font-weight: 500;
-  border-radius: 4px;
+  border-radius: 12px;
   margin-right: 0.25rem;
   padding: 0.25rem 0.5rem;
   height: 24px;
@@ -1049,8 +1060,8 @@ h3 {
 
 /* Count badge for selected items */
 .conversation-source-count-badge {
-  background:rgba(132, 140, 194, 0.363);
-  color: var(--white);
+  background:rgba(154, 154, 155, 0.363);
+  color: var(--desert-sand);
   font-weight: 500;
   border-radius: 4px;
   margin-right: 0.25rem;
@@ -1085,33 +1096,32 @@ h3 {
   display: flex;
   flex-direction: row;
   border-radius: 16px;
-  background: rgba(39, 45, 79, 0.6);
+  background: #202020;
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(255,255,255,0.08);
   
 }
 .chat-sidebar-list {
-  flex: 1;
+  height: 90%; 
   background: transparent;
-  height: 90vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto; 
+  overflow-x: hidden; 
   padding: 1.5rem 0.5rem;
   scrollbar-width: thin;
   scrollbar-color: var(--marian-blue) transparent;
-  
+
   &::-webkit-scrollbar {
     width: 6px;
-    position: absolute;
-    left: 0;
+    position: absolute; 
+    right: 0; 
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: var(--marian-blue);
     border-radius: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: transparent;
   }
@@ -1205,7 +1215,7 @@ h3 {
   justify-content: center;
   height: 100%;
   width: 100%;
-  background: rgba(39, 45, 79, 0.2);
+  background: #202020;
   border-radius: 16px;
 }
 
@@ -1287,7 +1297,7 @@ h3 {
 /* Better input styling */
 .chat-input-container {
   display: flex;
-  background-color: rgba(39, 45, 79, 0.85);
+  background-color: #202020;
   border-radius: 16px;
   border: 1px solid var(--marian-blue);
   padding: 0.5rem 1rem;
@@ -1298,6 +1308,7 @@ h3 {
 .chat-input-field {
   flex: 1;
   background-color: transparent;
+  width: 100%;
   border: none;
   outline: none;
   color: white;
@@ -1382,7 +1393,7 @@ h3 {
 
 /* Info Card */
 .info-card {
-  background: rgba(39, 45, 79, 0.85) !important;
+  background: #202020 !important;
   color: var(--desert-sand) !important;
   border-radius: 16px !important;
   box-shadow: 0 2px 8px 0 rgba(0,0,0,0.08) !important;
@@ -1607,14 +1618,16 @@ h3 {
   grid-template-areas:
     "top-left top-right"
     "history main";
-  background: rgba(39, 45, 79, 0.7);
+  background: #202020;
   border-radius: 16px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.08);
 }
 .chat-grid-history {
-  height: 100%;
+  height: 80vh;
+  display: flex; /* Make the parent a flex container */
+  flex-direction: column; /* Stack children vertically */
 }
 
 .chat-grid-top-left {
@@ -1772,7 +1785,7 @@ h3 {
 .cs-main-container {
   height: 95vh !important;
   border: none !important;
-  background: rgba(39, 45, 79, 0.5) !important;
+  background: #202020 !important;
   box-shadow: 0 4px 32px 0 rgba(39, 45, 79, 0.10);
   border-radius: 18px !important;
 }
@@ -1836,14 +1849,14 @@ h3 {
 
 /* Message input styling */
 .cs-message-input {
-  background-color: rgba(39, 45, 79, 0.85) !important;
+  background-color: transparent !important;
   border-top: 1.5px solid var(--marian-blue) !important;
   border-radius: 0 0 16px 16px !important;
   box-shadow: 0 -2px 8px 0 rgba(0,0,0,0.04) !important;
 }
 
 .cs-message-input__content-editor-wrapper {
-  background-color: rgba(39, 45, 79, 0.85) !important;
+  background-color: transparent !important;
   border: 1.5px solid var(--marian-blue) !important;
   border-radius: 12px !important;
 }
@@ -1858,7 +1871,7 @@ h3 {
 
 /* Sidebar styling */
 .cs-sidebar {
-  background: rgba(39, 45, 79, 0.35) !important;
+  background: #202020 !important;
   border-right: 1.5px solid var(--marian-blue) !important;
 }
 
@@ -1874,7 +1887,7 @@ h3 {
 /* Container for the entire conversation component */
 .conversations-container {
   height: 95vh;
-  background: rgba(39, 45, 79, 0.7);
+  background: #202020;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.08);
@@ -1884,7 +1897,7 @@ h3 {
 
 /* Conversation header */
 .cs-conversation-header {
-  background: rgba(39, 45, 79, 0.7) !important;
+  background: #202020 !important;
   border-bottom: 2px solid var(--marian-blue) !important;
   padding: 1.25rem 2rem 1rem 2rem !important;
   border-radius: 16px 16px 0 0 !important;
@@ -1962,7 +1975,7 @@ h3 {
   min-width: 24vw;
   width: 40%;
   height: 100vh;
-  background: rgba(39, 45, 79, 0.98);
+  background:  #202020;
   box-shadow: -4px 0 24px 0 rgba(39, 45, 79, 0.18);
   border-radius: 16px 0 0 16px;
   display: flex;
@@ -2086,7 +2099,7 @@ h3 {
 .upcoming-events-section {
   margin: 0;
   margin-top: 1.5rem;
-  background: rgba(39, 45, 79, 0.7);
+  background: #202020;
   box-shadow: none;
   border: none;
   border-radius: 16px;
@@ -2276,7 +2289,7 @@ h3 {
 .lead-temp-slider .MuiSlider-rail {
   height: 14px;
   border-radius: 8px;
-  background: #232b3e;
+  background: #37383b;
   opacity: 1;
 }
 .lead-temp-slider .MuiSlider-track {
@@ -2338,7 +2351,7 @@ h3 {
 }
 .settings-content {
   flex: 1;
-  background: rgba(39, 45, 79, 0.5);
+  background: #202020;
   border-radius: 16px;
   padding: 2.5rem 2.5rem 2.5rem 2rem;
   box-shadow: none;
@@ -2351,7 +2364,7 @@ h3 {
 
 .settings-menu {
   min-width: 220px;
-  background: rgba(39, 45, 79, 0.7);
+  background: #202020;
   border-radius: 16px;
   margin-right: 2.5rem;
   padding: 2rem 0.5rem 2rem 1.5rem;
@@ -2372,7 +2385,7 @@ h3 {
   align-items: flex-start !important;
   font-family: 'Work Sans', sans-serif;
   font-size: 1.1rem;
-  color: var(--desert-sand) !important;
+  color: white !important;
   opacity: 0.85;
   border-radius: 8px;
   margin-bottom: 0.5rem;
@@ -2381,7 +2394,7 @@ h3 {
 }
 .settings-tab.Mui-selected {
   background: var(--marian-blue);
-  color: var(--white);
+  color: var(--orange-crayola);
   font-weight: 600;
   opacity: 1;
 }
@@ -2462,8 +2475,8 @@ h3 {
   margin-bottom: 2.5rem;
 }
 .settings-integration-card {
-  background: #181e36;
-  border: 1px solid #26315a;
+  background: #202020;
+  border: 1px solid #4e4e4e;
   border-radius: 16px;
   padding: 2.2rem 2.2rem 1.2rem 2.2rem;
   min-width: 340px;
@@ -2534,7 +2547,7 @@ h3 {
   color: #1565c0 !important;
 }
 .settings-integration-dialog .MuiPaper-root {
-  background: #181e36 !important;
+  background: #202020 !important;
   border-radius: 18px !important;
   min-width: 420px;
   padding: 0.5rem 0 0.5rem 0;
@@ -2559,7 +2572,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 1.1rem;
-  background: #232b3e;
+  background: #202020;
   border: 1.5px solid #26315a;
   border-radius: 12px;
   padding: 1.1rem 1.2rem;
@@ -2569,7 +2582,7 @@ h3 {
 }
 .settings-integration-provider-row:hover {
   border: 1.5px solid #2979ff;
-  background: #232b3e;
+  background: #202020;
 }
 .settings-integration-provider-icon {
   font-size: 2rem !important;
@@ -2594,7 +2607,7 @@ h3 {
 }
 .settings-integration-cancel-btn {
   color: #6b7bb6 !important;
-  background: #232b3e !important;
+  background: #202020 !important;
   border-radius: 8px !important;
   font-weight: 600 !important;
   margin-right: 0.5rem !important;
@@ -2641,7 +2654,7 @@ h3 {
   gap: 2.2rem;
 }
 .settings-assistant-dialog .MuiPaper-root {
-  background: #181e36 !important;
+  background: #202020 !important;
   border-radius: 18px !important;
   min-width: 520px;
   padding: 0.5rem 0 0.5rem 0;
@@ -2662,7 +2675,7 @@ h3 {
 }
 .settings-assistant-cancel-btn {
   color: #6b7bb6 !important;
-  background: #232b3e !important;
+  background: #202020 !important;
   border-radius: 8px !important;
   font-weight: 600 !important;
   margin-right: 0.5rem !important;
@@ -2704,7 +2717,7 @@ h3 {
   font-weight: 600;
 }
 .settings-profile-tab-content {
-  background: rgba(39, 45, 79, 0.7);
+  background: #202020;
   border-radius: 16px;
   padding: 2.5rem 2.5rem 2.5rem 2rem;
   min-height: 400px;
@@ -2728,7 +2741,7 @@ h3 {
   height: 64px !important;
   border-radius: 12px !important;
   margin-left: 1.5rem;
-  background: #232b3e !important;
+  background: #202020 !important;
   border: 2px solid #26315a !important;
 }
 
@@ -2859,7 +2872,7 @@ h3 {
 }
 
 .settings-billing-plan-btn.current {
-  background: #232b3e !important;
+  background: #3c3d3f !important;
   color: #bdbdbd !important;
   cursor: not-allowed !important;
   opacity: 0.7;
@@ -3066,14 +3079,14 @@ h3 {
   margin-bottom: 0.5rem;
 }
 .assistant-card-channel-pill {
-  background: #232b3e;
-  color: #fff;
+  background: #3c3d3f;
+  color: #a0a0a0;
   border-radius: 16px;
   padding: 0.25em 1em;
   font-size: 0.98rem;
   font-weight: 600;
   margin-right: 0.3rem;
-  border: 1.5px solid #26315a;
+  border: 1.5px solid #4e4e4e;
   display: inline-block;
 }
 .assistant-card-footer-row {
@@ -3098,11 +3111,11 @@ h3 {
 }
 .settings-assistant-dialog-content .MuiOutlinedInput-root {
   color: #fff !important;
-  background: #232b3e !important;
+  background: #202020 !important;
   border-radius: 10px;
 }
 .settings-assistant-dialog-content .MuiOutlinedInput-notchedOutline {
-  border-color: #3C4884 !important;
+  border-color: #4e4e4e !important;
 }
 .settings-assistant-dialog-content .MuiInputLabel-root {
   color: #fff !important;

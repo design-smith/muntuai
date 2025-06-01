@@ -79,13 +79,15 @@ function TemplateEditorWrapper() {
 
 function App() {
   const [user, setUser] = useState(null);
-  const [isFirstLogin, setIsFirstLogin] = useState(false);
+  const [accessToken, setAccessToken] = useState(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     console.log('App loading...');
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user || null);
+      setAccessToken(session?.access_token || null);
       if (session?.access_token) {
         // Call /auth/sync_user with JWT
         try {
@@ -104,13 +106,13 @@ function App() {
           });
           const data = await res.json();
           console.log('sync_user response:', data);
-          setIsFirstLogin(data.is_first_login);
+          setOnboardingCompleted(data.user?.onboarding_completed === true);
         } catch (e) {
           console.error('sync_user error:', e);
-          setIsFirstLogin(false);
+          setOnboardingCompleted(false);
         }
       } else {
-        setIsFirstLogin(false);
+        setOnboardingCompleted(false);
       }
       setLoading(false);
       console.log('App loading finished.');
@@ -118,6 +120,7 @@ function App() {
     // Listen for auth changes
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user || null);
+      setAccessToken(session?.access_token || null);
       if (session?.access_token) {
         try {
           console.log('Calling /auth/sync_user (onAuthStateChange)...');
@@ -135,13 +138,13 @@ function App() {
           });
           const data = await res.json();
           console.log('sync_user response (onAuthStateChange):', data);
-          setIsFirstLogin(data.is_first_login);
+          setOnboardingCompleted(data.user?.onboarding_completed === true);
         } catch (e) {
           console.error('sync_user error (onAuthStateChange):', e);
-          setIsFirstLogin(false);
+          setOnboardingCompleted(false);
         }
       } else {
-        setIsFirstLogin(false);
+        setOnboardingCompleted(false);
       }
       setLoading(false);
       console.log('App loading finished (onAuthStateChange).');
@@ -156,28 +159,32 @@ function App() {
     return <div>Loading...</div>;
   }
 
+  // Provide user object with accessToken always present
+  const userWithToken = user ? { ...user, accessToken } : null;
+
   return (
-    <UserContext.Provider value={{ user, setUser, supabase, isFirstLogin, setIsFirstLogin }}>
+    <UserContext.Provider value={{ user: userWithToken, setUser, supabase, onboardingCompleted, setOnboardingCompleted }}>
       <Router>
         <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/login" element={<Auth />} />
-          <Route path="/onboarding" element={user && isFirstLogin ? <Onboarding /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/onboarding" element={user && onboardingCompleted === false ? <Onboarding /> : <Navigate to="/dashboard" replace />} />
           <Route
             path="/*"
             element={
               user ? (
-                isFirstLogin ? (
+                onboardingCompleted === false ? (
                   <Navigate to="/onboarding" replace />
                 ) : (
-                  <AppLayout>
-                    <Routes>
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/chat" element={<Chat />} />
-                      <Route path="/conversation" element={<Conversation />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/templates/edit/:id" element={<TemplateEditorWrapper />} />
-                    </Routes>
-                  </AppLayout>
+        <AppLayout>
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/conversation" element={<Conversation />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/templates/edit/:id" element={<TemplateEditorWrapper />} />
+          </Routes>
+        </AppLayout>
                 )
               ) : (
                 <Navigate to="/login" replace />

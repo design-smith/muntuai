@@ -150,7 +150,7 @@ def apply_collection_validations():
         "bsonType": "object",
         "required": ["user_id", "name", "type", "created_at"],
         "properties": {
-            "user_id": {"bsonType": "objectId"},
+            "user_id": {"bsonType": "string"},
             "name": {"bsonType": "string"},
             "type": {"bsonType": "string"},
             "created_at": {"bsonType": "date"}

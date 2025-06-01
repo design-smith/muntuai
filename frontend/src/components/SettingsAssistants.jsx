@@ -19,6 +19,7 @@ const SettingsAssistants = ({
   handleChannelsChange,
   handleSaveAssistant,
   handleDeleteAssistant,
+  handleToggleAssistant,
   loading,
   error
 }) => (
@@ -41,14 +42,9 @@ const SettingsAssistants = ({
               created={a.created}
               isActive={a.isActive}
               onEdit={() => openEditModal(idx)}
+              onDelete={() => handleDeleteAssistant(idx)}
+              onToggle={() => handleToggleAssistant(idx)}
             />
-            <MuiButton
-              size="small"
-              style={{ position: 'absolute', top: 8, right: 8, color: '#FF7125' }}
-              onClick={() => handleDeleteAssistant(idx)}
-            >
-              Delete
-            </MuiButton>
           </div>
         ))}
       </div>

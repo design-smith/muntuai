@@ -1,6 +1,8 @@
 import logging
 import time
 from composio_openai import ComposioToolSet
+import os
+import urllib.parse # Already present, ensuring it's used
 
 class ComposioIntegrationClient:
     """
@@ -25,9 +27,31 @@ class ComposioIntegrationClient:
             Exception: If the redirect URL is not available.
         """
         try:
-            entity = self.toolset.get_entity(id=user_id)
-            connection_request = entity.initiate_connection(app_name=provider, integration_id=integration_id)
-            redirect_url = getattr(connection_request, 'redirectUrl', None)
+            toolset = ComposioToolSet()
+            # Map provider to integration_id
+            if provider == "gmail":
+                integration_id = os.getenv("COMPOSIO_GMAIL_INTEGRATION_ID")
+            elif provider == "outlook":
+                integration_id = os.getenv("COMPOSIO_OUTLOOK_INTEGRATION_ID")
+            elif provider == "slack":
+                integration_id = os.getenv("COMPOSIO_SLACK_INTEGRATION_ID")
+            elif provider == "google_calendar":
+                integration_id = os.getenv("COMPOSIO_GOOGLE_CALENDAR_INTEGRATION_ID")
+            elif provider == "fireflies":
+                integration_id = os.getenv("COMPOSIO_FIREFLIES_INTEGRATION_ID")
+            elif provider == "calendly":
+                integration_id = os.getenv("COMPOSIO_CALENDLY_INTEGRATION_ID")
+            elif provider == "discord":
+                integration_id = os.getenv("COMPOSIO_DISCORD_INTEGRATION_ID")
+            # Add more providers as needed
+            if not integration_id:
+                raise Exception(f"No integration_id configured for provider {provider}")
+            connection_info = toolset.initiate_connection(
+                integration_id=integration_id,
+                entity_id=user_id
+            )
+        
+            redirect_url = getattr(connection_info, 'redirectUrl', None)
             if not redirect_url:
                 raise Exception(f"Failed to get redirect URL from Composio for provider {provider} and user {user_id}.")
             logging.info(f"Redirect URL for user {user_id} and provider {provider}: {redirect_url}")
@@ -51,11 +75,14 @@ class ComposioIntegrationClient:
         Raises:
             TimeoutError: If the connection does not become active within the timeout period.
         """
+        
         try:
             entity = self.toolset.get_entity(id=user_id)
-            for _ in range(timeout):
-                connections = entity.list_connections()
+            for poll_num in range(timeout):
+                connections = entity.get_connections()
+                logging.info(f"[poll_connection_status] Poll {poll_num+1}/{timeout}: Found {len(connections)} connections for user {user_id}")
                 for connection in connections:
+                    logging.info(f"[poll_connection_status] Connection: app_name={connection.app_name}, status={connection.status}, id={connection.id}")
                     if connection.app_name == provider and connection.status == "ACTIVE":
                         logging.info(f"Connection active for user {user_id} and provider {provider}: {connection.id}")
                         return connection.id

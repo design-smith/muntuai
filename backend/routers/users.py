@@ -31,6 +31,7 @@ def api_create_user(user: dict = Body(...)):
 
 @router.put("/users/{user_id}")
 def api_update_user(user_id: str, update: dict = Body(...)):
+    # Accept first_name, last_name, title, email, phone, etc.
     updated = update_user(user_id, update)
     if not updated:
         raise HTTPException(status_code=404, detail="User not found")
@@ -42,3 +43,20 @@ def api_delete_user(user_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"deleted": True} 
+
+@router.post("/users/{user_id}/resume")
+async def update_user_resume(user_id: str, resume: dict, current_user: dict = Depends(get_current_user)):
+    """
+    Update the resume field for a user.
+    """
+    updated = update_user(user_id, {"resume": resume})
+    # Serialize ObjectId and datetimes
+    def serialize_user(user):
+        user = dict(user)
+        if '_id' in user:
+            user['_id'] = str(user['_id'])
+        for key in ['created_at', 'updated_at', 'last_login']:
+            if key in user and hasattr(user[key], 'isoformat'):
+                user[key] = user[key].isoformat()
+        return user
+    return {"user": serialize_user(updated)} 

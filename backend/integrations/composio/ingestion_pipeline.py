@@ -1,6 +1,7 @@
 import logging
 from ...data_services.mongo.mongo_client import get_collection
-from datetime import datetime
+from datetime import datetime, timedelta
+from ...data_services.mongo.user_repository import get_user_by_id
 
 def process_email_payload(payload):
     """
@@ -40,3 +41,40 @@ def process_email_payload(payload):
     except Exception as e:
         logging.error(f"Failed to process email payload: {str(e)}")
         raise
+
+def fetch_provider_data_with_range(user_id, provider):
+    """
+    Fetch messages/events/emails from a provider for a user, respecting the user's search_range preference.
+    """
+    user = get_user_by_id(user_id)
+    if not user:
+        logging.error(f"User {user_id} not found for provider sync.")
+        return []
+    prefs = user.get("integration_preferences", {}).get(provider, {})
+    days = prefs.get("search_range", 5)  # default to 30 days
+    start_date = datetime.utcnow() - timedelta(days=days)
+    logging.info(f"Fetching data for user {user_id}, provider {provider}, from {start_date.isoformat()} to now.")
+    # TODO: Call Composio API for the provider, passing start_date as the lower bound
+    # Example: composio_client.fetch_messages(user_id, provider, start_date)
+    # For now, just log and return empty list
+    return []
+
+def sync_all_providers_for_user(user_id):
+    """
+    Sync all connected providers for a user, respecting their preferences.
+    """
+    user = get_user_by_id(user_id)
+    if not user:
+        logging.error(f"User {user_id} not found for provider sync.")
+        return
+    integrations = user.get("composio_integrations", [])
+    if not integrations:
+        logging.info(f"No integrations found for user {user_id}.")
+        return
+    for integration in integrations:
+        provider = integration.get("provider")
+        if not provider:
+            continue
+        logging.info(f"Syncing provider {provider} for user {user_id}...")
+        results = fetch_provider_data_with_range(user_id, provider)
+        logging.info(f"Fetched {len(results)} items from {provider} for user {user_id}.")

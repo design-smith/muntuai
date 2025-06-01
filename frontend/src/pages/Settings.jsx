@@ -34,6 +34,7 @@ import SettingsAssistants from '../components/SettingsAssistants';
 import SettingsProfile from '../components/SettingsProfile';
 import SettingsConversations from '../components/SettingsConversations';
 import { useUser } from '../App';
+import { useLocation } from 'react-router-dom';
 
 const SETTINGS_SECTIONS = [
   { label: 'General', value: 'general' },
@@ -46,6 +47,7 @@ const SETTINGS_SECTIONS = [
 ];
 
 const Settings = () => {
+  const location = useLocation();
   const [selected, setSelected] = useState('general');
   // General settings state
   const [email] = useState('');
@@ -251,6 +253,25 @@ const Settings = () => {
       setAssistants(data.assistants || []);
     } catch {
       setAssistantError('Failed to delete assistant');
+    }
+  };
+
+  // Toggle assistant active state
+  const handleToggleAssistant = async (idx) => {
+    const assistant = assistants[idx];
+    const updated = { ...assistant, isActive: !assistant.isActive };
+    try {
+      await fetch(`http://localhost:8000/assistants/${assistant._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.accessToken}`,
+        },
+        body: JSON.stringify({ isActive: updated.isActive }),
+      });
+      setAssistants(assts => assts.map((a, i) => i === idx ? updated : a));
+    } catch {
+      // Optionally show error
     }
   };
 
@@ -468,6 +489,19 @@ const Settings = () => {
     setAssistantForm((prev) => ({ ...prev, channels: { ...prev.channels, [e.target.name]: e.target.checked } }));
   };
 
+  // On mount, check for ?section=assistants&addAssistant=1
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const section = params.get('section');
+    const addAssistant = params.get('addAssistant');
+    if (section === 'assistants') {
+      setSelected('assistants');
+      if (addAssistant === '1') {
+        openAddModal();
+      }
+    }
+  }, [location.search]);
+
   return (  
       <Box className="settings-page-root">
         <Box className="settings-menu">
@@ -546,6 +580,7 @@ const Settings = () => {
               handleChannelsChange={handleChannelsChange}
               handleSaveAssistant={handleSaveAssistant}
               handleDeleteAssistant={handleDeleteAssistant}
+              handleToggleAssistant={handleToggleAssistant}
               loading={loadingAssistants}
               error={assistantError}
             />

@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import HeadsetMicIcon from '@mui/icons-material/HeadsetMic';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
 // Assistant Card
 export function AssistantCard({
@@ -18,6 +19,7 @@ export function AssistantCard({
   created,
   isActive = true,
   onToggle,
+  onDelete,
   ...props
 }) {
   return (
@@ -39,9 +41,19 @@ export function AssistantCard({
           <span className="assistant-card-channel-pill" key={ch}>{ch}</span>
         ))}
       </div>
-      <div className="assistant-card-footer-row">
+      <div className="assistant-card-footer-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
         {created && <span className="assistant-card-created">Created: {created}</span>}
         <button className="button button-outlined assistant-card-edit-btn" onClick={onEdit}>Edit</button>
+        </div>
+        <button
+          className="assistant-card-delete-btn"
+          style={{ background: 'none', border: 'none', color: 'rgba(255,113,37,0.45)', opacity: 0.7, cursor: 'pointer', marginLeft: 12, fontSize: 22 }}
+          title="Delete"
+          onClick={onDelete}
+        >
+          <DeleteOutlineIcon style={{ fontSize: 22 }} />
+        </button>
       </div>
     </Card>
   );

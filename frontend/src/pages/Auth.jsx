@@ -29,6 +29,7 @@ const Auth = () => {
   const [resetError, setResetError] = useState('');
   const [oauthLoading, setOauthLoading] = useState(false);
   const [oauthError, setOauthError] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const navigate = useNavigate();
 
   if (user) return <Navigate to="/dashboard" replace />;
@@ -37,6 +38,11 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      setLoading(false);
+      return;
+    }
     try {
       let result;
       if (mode === 'login') {
@@ -131,6 +137,16 @@ const Auth = () => {
             type="password"
             required
           />
+          {mode === 'signup' && (
+            <TextInput
+              label="Confirm Password"
+              placeholder="Re-enter your password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              type="password"
+              required
+            />
+          )}
           <Button type="submit" variant="contained" className="button button-contained" disabled={loading} style={{ marginTop: 8 }}>
             {loading ? 'Loading...' : mode === 'login' ? 'Login' : 'Sign Up'}
           </Button>

@@ -13,9 +13,9 @@ from .routers import (
 from .routers.auth_utils import get_current_user, security
 import logging
 from dotenv import load_dotenv
+from backend.routers import resume_parser
 
 load_dotenv()
-
 # Configure logging first
 logging.basicConfig(
     level=logging.INFO, 
@@ -32,23 +32,10 @@ app = FastAPI(
 # Enhanced CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],
+    allow_origins=["*"],  # Allow all origins during development
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=[
-        "Content-Type", 
-        "Authorization", 
-        "X-Requested-With",
-        "Accept",
-        "Origin",
-        "Access-Control-Request-Method",
-        "Access-Control-Request-Headers"
-    ],
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
     expose_headers=["*"]
 )
 
@@ -98,6 +85,7 @@ try:
     app.include_router(integrations_router.router)
     app.include_router(webhooks_router.router)
     app.include_router(billing.router)
+    app.include_router(resume_parser.router)
     logger.info("✅ All routers loaded successfully")
 except Exception as e:
     logger.error(f"❌ Failed to load routers: {str(e)}")
@@ -126,6 +114,7 @@ async def test_auth(current_user: dict = Depends(get_current_user)):
 async def show_routes():
     logger.info("🚀 MUNTU AI API STARTING UP")
     logger.info("🚀 ROUTES LOADED:")
+
     for route in app.router.routes:
         try:
             methods = ','.join(route.methods) if hasattr(route, 'methods') else 'WebSocket'

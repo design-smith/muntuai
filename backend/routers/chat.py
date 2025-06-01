@@ -1,9 +1,10 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Body
 from typing import Dict, List
-from backend.agents.primary_agent import get_primary_agent
+from backend.agents.primary_agent import get_primary_agent, process_request
 import json
 from backend.data_services.mongo.chat_repository import create_chat, add_message, list_chats, get_chat_by_id
 from bson import ObjectId
+from datetime import datetime
 
 router = APIRouter()
 
@@ -25,89 +26,82 @@ def get_context_messages(history: List[dict]) -> List[dict]:
     context_messages = history[-MAX_MESSAGES:]
     
     # Calculate total characters
-    total_chars = sum(len(msg.get("content", "")) for msg in context_messages)
+    total_chars = sum(len(msg.get("text", "")) for msg in context_messages)
     
     # If we're over the character limit, remove oldest messages until we're under
     while total_chars > MAX_CHARS and len(context_messages) > 1:
         removed_msg = context_messages.pop(0)
-        total_chars -= len(removed_msg.get("content", ""))
+        total_chars -= len(removed_msg.get("text", ""))
     
     return context_messages
 
-@router.websocket("/ws/chat/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: str):
+@router.websocket("/ws/chat/{chat_id}")
+async def websocket_endpoint(websocket: WebSocket, chat_id: str):
     await websocket.accept()
-    active_connections[client_id] = websocket
-    
+    chat = get_chat_by_id(chat_id)
+    if not chat:
+        await websocket.close()
+        return
+    assistant_id = chat.get('assistant_id')
+    user_id = chat.get('user_id')
+    messages = chat.get('messages', [])
+    # Instantiate the primary agent with the assistant config
+    agent = get_primary_agent(assistant_id=assistant_id, user_id=user_id)
+    active_connections[chat_id] = websocket
+    active_agents[chat_id] = agent
+    conversation_history[chat_id] = messages.copy()
     try:
-        # Initialize agent for this connection
-        agent = get_primary_agent(name="Muntu")
-        active_agents[client_id] = agent
-        
-        # Initialize conversation history for this client
-        conversation_history[client_id] = []
-        
-        # Send welcome message
-        welcome_message = {
-            "role": "assistant",
-            "content": "Hello! I'm Muntu, how can I help you today?",
-            "time": "now"
-        }
-        conversation_history[client_id].append(welcome_message)
-        
-        await websocket.send_json({
-            "type": "message",
-            "sender": "Muntu",
-            "content": welcome_message["content"],
-            "time": "now"
-        })
-        
         while True:
             # Receive message from client
             data = await websocket.receive_text()
             message_data = json.loads(data)
-            
-            # Add user message to history
+            # Add user message to DB and in-memory history
             user_message = {
-                "role": "user",
-                "content": message_data["content"],
-                "time": message_data.get("time", "now")
+                "sender": "You",
+                "text": message_data["content"],
+                "created_at": datetime.utcnow()
             }
-            conversation_history[client_id].append(user_message)
-            
-            # Get context messages
-            context_messages = get_context_messages(conversation_history[client_id])
-            
-            # Get agent's response
-            response = agent.generate_reply(
-                messages=context_messages,
-                sender=agent
+            conversation_history[chat_id].append(user_message)
+            add_message(chat_id, user_message)
+            # Get context messages (convert to role/content for agent)
+            # (No longer needed for generate_reply, but keep for possible future use)
+            # Append current date and time to the prompt
+            # Use process_request to generate the response
+            print(f"Processing request: {message_data['content']}")
+            print(f"Agent: {agent}")
+            print(f"User ID: {user_id}")
+            print(f"Assistant ID: {assistant_id}")
+            response = process_request(
+                agent,
+                message_data["content"],
+                user_id=user_id,
+                assistant_id=assistant_id
             )
-            
-            # Add agent's response to history
+            print(f"Response: {response}")
+            # Add agent's response to history and DB
             assistant_message = {
-                "role": "assistant",
-                "content": response,
-                "time": "now"
+                "sender": agent.name,
+                "text": response,
+                "created_at": datetime.utcnow()
             }
-            conversation_history[client_id].append(assistant_message)
-            
+            conversation_history[chat_id].append(assistant_message)
+            add_message(chat_id, assistant_message)
             # Send response back to client
+            created_at = assistant_message["created_at"]
             await websocket.send_json({
                 "type": "message",
-                "sender": "Muntu",
+                "sender": agent.name,
                 "content": response,
-                "time": "now"
+                "time": created_at.isoformat() if isinstance(created_at, datetime) else str(created_at)
             })
-            
     except WebSocketDisconnect:
         # Clean up when client disconnects
-        if client_id in active_connections:
-            del active_connections[client_id]
-        if client_id in active_agents:
-            del active_agents[client_id]
-        if client_id in conversation_history:
-            del conversation_history[client_id]
+        if chat_id in active_connections:
+            del active_connections[chat_id]
+        if chat_id in active_agents:
+            del active_agents[chat_id]
+        if chat_id in conversation_history:
+            del conversation_history[chat_id]
     except Exception as e:
         # Handle any other errors
         await websocket.send_json({
@@ -130,6 +124,7 @@ def to_str_id(doc):
 
 @router.post("/chats")
 def api_create_chat(chat: dict = Body(...)):
+    # chat must include user_id and assistant_id
     new_chat = create_chat(chat)
     return to_str_id(new_chat)
 
@@ -139,8 +134,9 @@ def api_add_message(chat_id: str, message: dict = Body(...)):
     return to_str_id(updated_chat)
 
 @router.get("/chats")
-def api_list_chats():
-    chats = list_chats()
+def api_list_chats(user_id: str = None):
+    # Optionally filter by user_id
+    chats = list_chats(user_id=user_id) if user_id else list_chats()
     return {"chats": [to_str_id(c) for c in chats]}
 
 @router.get("/chats/{chat_id}")

@@ -7,7 +7,7 @@
   --space-cadet: #272D4Fff;
   --desert-sand: #DBBAA7ff;
   --bone: #E8E0D5ff;
-  --raisin-black: #202125ff;
+  --raisin-black: rgb(0, 0, 0);
 
   font-family: 'Open Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -15,7 +15,7 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: var(--raisin-black);
+  background-color: #000000;
 }
 
 a {
@@ -35,7 +35,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background: linear-gradient(to bottom, var(--raisin-black) 0%, var(--marian-blue) 60%, var(--orange-crayola) 100%);
+  background: #000000;
   color: #ffffff;
   font-family: 'Open Sans', sans-serif;
 }

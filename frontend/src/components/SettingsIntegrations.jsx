@@ -28,70 +28,47 @@ const SettingsIntegrations = ({
         setLoadingProvider(null);
         return;
       }
-      const redirectUrl = `http://localhost:8000/integrations/connect?provider=${providerName.toLowerCase()}&token=${accessToken}`;
-      window.location.href = redirectUrl;
+      // Normalize provider name for backend
+      let backendProvider = providerName.toLowerCase();
+      if (backendProvider === 'google calendar') backendProvider = 'google_calendar';
+      const url = `http://localhost:8000/integrations/connect?provider=${backendProvider}&token=${accessToken}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.redirect_url) {
+        window.location.href = data.redirect_url;
+      } else {
+        alert('Failed to get redirect URL');
+      }
     } catch (err) {
-      alert('Error connecting ' + providerName + ': ' + (err.message || err));
-      setLoadingProvider(null);
+      alert('Error connecting provider: ' + err.message);
     }
+    setLoadingProvider(null);
   };
 
   // Define all providers for each integration type
   const allIntegrationTypes = [
     {
-      key: 'email',
-      title: 'Email Provider',
-      desc: 'Connect your email service for sending and receiving messages',
+      key: 'communications',
+      title: 'Communications',
+      desc: 'Connect your communication channels for sending and receiving messages',
       icon: <EmailOutlinedIcon className="integration-icon" />,
       providers: [
         { name: 'Gmail', desc: 'Connect your Google Mail account', icon: <EmailOutlinedIcon color="error" /> },
         { name: 'Outlook', desc: 'Connect your Outlook account', icon: <EmailOutlinedIcon color="primary" /> },
+        { name: 'Slack', desc: 'Connect Slack', icon: <ChatOutlinedIcon color="primary" /> },
+        { name: 'Discord', desc: 'Connect Discord', icon: <ChatOutlinedIcon color="action" /> },
       ],
       connected: [],
     },
     {
-      key: 'calendar',
-      title: 'Calendar',
+      key: 'schedule',
+      title: 'Schedule',
       desc: 'Sync your appointments and scheduling',
       icon: <CalendarMonthOutlinedIcon className="integration-icon" />,
       providers: [
         { name: 'Google Calendar', desc: 'Connect your Google Calendar', icon: <CalendarMonthOutlinedIcon color="primary" /> },
-        { name: 'Outlook Calendar', desc: 'Connect your Outlook Calendar', icon: <CalendarMonthOutlinedIcon color="action" /> },
-      ],
-      connected: [],
-    },
-    {
-      key: 'crm',
-      title: 'CRM Connections',
-      desc: 'Connect your CRM tools',
-      icon: <BusinessCenterOutlinedIcon className="integration-icon" />,
-      providers: [
-        { name: 'HubSpot', desc: 'Connect HubSpot', icon: <BusinessCenterOutlinedIcon color="primary" /> },
-        { name: 'Salesforce', desc: 'Connect Salesforce', icon: <BusinessCenterOutlinedIcon color="action" /> },
-        { name: 'HIGHLEVEL', desc: 'Connect HIGHLEVEL', icon: <BusinessCenterOutlinedIcon color="error" /> },
-      ],
-      connected: [],
-    },
-    {
-      key: 'payment',
-      title: 'Payment Processing',
-      desc: 'Connect payment providers',
-      icon: <PaymentOutlinedIcon className="integration-icon" />,
-      providers: [
-        { name: 'Stripe', desc: 'Connect Stripe', icon: <PaymentOutlinedIcon color="primary" /> },
-      ],
-      connected: [],
-    },
-    {
-      key: 'social',
-      title: 'Social Media',
-      desc: 'Connect your social channels',
-      icon: <ChatOutlinedIcon className="integration-icon" />,
-      providers: [
-        { name: 'Slack', desc: 'Connect Slack', icon: <ChatOutlinedIcon color="primary" /> },
-        { name: 'Discord', desc: 'Connect Discord', icon: <ChatOutlinedIcon color="action" /> },
-        { name: 'WhatsApp', desc: 'Connect WhatsApp', icon: <ChatOutlinedIcon color="success" /> },
-        { name: 'LinkedIn', desc: 'Connect LinkedIn', icon: <LinkedInIcon style={{ fontSize: 24 }} /> },
+        { name: 'Fireflies Note Taker', desc: 'Connect Fireflies Note Taker', icon: <CalendarMonthOutlinedIcon color="error" /> },
+        { name: 'Calendly', desc: 'Connect Calendly', icon: <CalendarMonthOutlinedIcon color="action" /> },
       ],
       connected: [],
     },

@@ -6,6 +6,9 @@ from backend.GraphRAG.graphrag.engine.context_builder import GraphRAGContextBuil
 from backend.GraphRAG.graphrag.engine.rag_engine import GraphRAGEngine
 from composio_openai import ComposioToolSet, Action
 from backend.data_services.mongo.assistant_repository import get_assistant_by_id
+from backend.agents.utils import extract_citation_targets, response_has_citation, refine_response
+from backend.data_services.mongo.user_repository import get_user_by_id
+from bson import ObjectId, errors as bson_errors
 
 # Load environment variables
 load_dotenv()
@@ -97,17 +100,41 @@ def get_primary_agent(assistant_id=None, user_id=None, context_builder=None):
     return primary_agent
 
 def process_request(agent, request, user_id="user1", assistant_id=None):
-    """Process a user request through the primary agent, using context builder and assistant config."""
-    # Get context from GraphRAG
-    context = agent.context_builder.format_for_agent(query=request, user_id=user_id, agent_type="primary")
+    """
+    Process a user request through the primary agent, using context builder and assistant config.
+    Enforces citation of knowledge base nodes and refines the response to be concise and human-like.
+    """
+    # Always use the MongoDB _id for retrieval
+    try:
+        # Try to treat user_id as ObjectId
+        mongo_user_id = str(ObjectId(user_id))
+    except (bson_errors.InvalidId, TypeError):
+        # If not a valid ObjectId, look up by Supabase ID
+        user_doc = get_user_by_id(user_id)
+        if user_doc and user_doc.get("_id"):
+            mongo_user_id = str(user_doc["_id"])
+        else:
+            mongo_user_id = str(user_id)  # fallback
+    print(f"[DEBUG] Using MongoDB user_id for retrieval: {mongo_user_id}")
+    # Get context from GraphRAG using MongoDB _id
+    context = agent.context_builder.format_for_agent(query=request, user_id=mongo_user_id, agent_type="primary")
+    print("[DEBUG] Context summary:", context['summary'])
+    print("[DEBUG] Context raw:", context['raw'])
+    print("[DEBUG] Type of context['summary']:", type(context['summary']))
+    print("[DEBUG] Type of context['raw']:", type(context['raw']))
+    citation_targets = extract_citation_targets(context)
+    print("[DEBUG] Citation targets:", citation_targets)
     # Add assistant config to system message if available
-    system_context = f"Relevant context:\n{context['summary']}"
+    system_context = f"Relevant context:\n{context['summary']}\n\nFor every fact you state, cite the source node or document from the knowledge base (e.g., 'Source: [node id or title]')."
+    print("[DEBUG] System context:", system_context)
+    print("[DEBUG] Type of system_context:", type(system_context))
     if hasattr(agent, 'assistant_config') and agent.assistant_config:
         system_context += f"\nAssistant configuration:\n"
         for k, v in agent.assistant_config.items():
             if k not in ["_id", "user_id", "created_at", "updated_at"]:
                 system_context += f"- {k}: {v}\n"
     # Get the primary agent's response, including context summary and config
+    print("[DEBUG] Calling agent.generate_reply...")
     response = agent.generate_reply(
         messages=[{
             "role": "user",
@@ -118,6 +145,27 @@ def process_request(agent, request, user_id="user1", assistant_id=None):
         }],
         sender=agent
     )
+    print("[DEBUG] Response from agent.generate_reply:", response)
+    print("[DEBUG] Type of response:", type(response))
+    # If the response does not contain a citation, prompt the LLM to add one
+    if not response_has_citation(response, citation_targets):
+        citation_instruction = "Please revise your answer to include a citation to the relevant source node or document from the knowledge base (by title or ID)."
+        print("[DEBUG] Citation missing, sending revision prompt.")
+        response = agent.generate_reply(
+            messages=[
+                {"role": "user", "content": request},
+                {"role": "system", "content": system_context},
+                {"role": "assistant", "content": response},
+                {"role": "system", "content": citation_instruction}
+            ],
+            sender=agent
+        )
+        print("[DEBUG] Revised response:", response)
+        print("[DEBUG] Type of revised response:", type(response))
+    # Refine the response to be concise, human-like, and free of AI mannerisms
+    response = refine_response(response)
+    print("[DEBUG] Refined response:", response)
+    print("[DEBUG] Type of refined response:", type(response))
     
     # Check if the response indicates a need for calendar operations
     calendar_keywords = [
@@ -127,10 +175,13 @@ def process_request(agent, request, user_id="user1", assistant_id=None):
     
     # Only delegate if the response clearly indicates a calendar operation
     if any(keyword in response.lower() for keyword in calendar_keywords):
+        print("[DEBUG] Calendar keyword detected, delegating to calendar agent.")
         # Forward the request to the calendar agent, including context
         calendar_context = agent.context_builder.format_for_agent(
-            query=request, user_id=user_id, agent_type="calendar"
+            query=request, user_id=mongo_user_id, agent_type="calendar"
         )
+        print("[DEBUG] Calendar context summary:", calendar_context['summary'])
+        print("[DEBUG] Calendar context raw:", calendar_context['raw'])
         calendar_response = agent.calendar_agent.generate_reply(
             messages=[{
                 "role": "user",
@@ -141,21 +192,18 @@ def process_request(agent, request, user_id="user1", assistant_id=None):
             }],
             sender=agent.calendar_agent
         )
+        print("[DEBUG] Calendar agent response:", calendar_response)
         
         # Process the calendar response and maintain context
         final_response = agent.generate_reply(
             messages=[
-                {
-                    "role": "user",
-                    "content": request
-                },
-                {
-                    "role": "assistant",
-                    "content": f"Calendar Assistant's response: {calendar_response}"
-                }
+                {"role": "user", "content": request},
+                {"role": "assistant", "content": f"Calendar Assistant's response: {calendar_response}"}
             ],
             sender=agent
         )
+        final_response = refine_response(final_response)
+        print("[DEBUG] Final calendar response:", final_response)
         return final_response
     
     return response

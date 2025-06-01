@@ -70,9 +70,27 @@ const Dashboard = () => {
       if (!user?.id) return;
       setLoading(true);
       try {
-        // 1. Fetch user doc from DB
-        const userRes = await fetch(`/api/users/${user.id}`);
+        // 1. Fetch user doc from DB with auth token
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+        if (!accessToken) {
+          console.error('No access token available');
+          return;
+        }
+
+        const userRes = await fetch(`http://localhost:8000/users/${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!userRes.ok) {
+          throw new Error(`HTTP error! status: ${userRes.status}`);
+        }
+
         const userData = await userRes.json();
+        console.log('Fetched user data:', userData);
         setUserDoc(userData);
 
         // 2. Fetch metrics
@@ -158,20 +176,18 @@ const Dashboard = () => {
     fetchData();
   }, [user?.id, timeframe]);
 
-  const firstName = userDoc?.name?.split(' ')[0] || userDoc?.name || user?.name?.split(' ')[0] || user?.name || user?.email;
-
   return (
     <Box className="page-container">
       <Box className="dashboard-topbar">
         <h1>
-          Welcome {firstName}
+          Welcome {userDoc?.first_name || userDoc?.name?.split(' ')[0] || 'User'}
         </h1>
         <Box className="dashboard-topbar-actions">
           <Search />
           <IconButton size="large" className="dashboard-profile-icon" onClick={handleProfileMenuOpen}>
             <AccountCircle fontSize="large" />
           </IconButton>
-          <span className="dashboard-username">{firstName}</span>
+          <span className="dashboard-username">{userDoc?.first_name || userDoc?.name?.split(' ')[0] || 'User'}</span>
           <Menu
             anchorEl={anchorEl}
             open={open}
