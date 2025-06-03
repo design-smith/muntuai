@@ -99,4 +99,32 @@ All notable changes to this project will be documented in this file.
 - Enhanced user ID handling with ObjectId conversion and fallback lookups
 - Improved resume data extraction to include all resume-related fields
 - Added better error handling and debug logging for user data retrieval
-- Implemented structured and raw text resume formatting options 
+- Implemented structured and raw text resume formatting options
+
+### Technical Details
+- Resume parsing now uses Affinda API for initial extraction
+- Data is normalized and structured before storage
+- Graph relationships provide rich querying capabilities:
+  - Work history tracking
+  - Education history tracking
+  - Skills used at specific companies
+  - Location history
+  - Organization connections
+
+### Example Queries
+```cypher
+// Get work history
+MATCH (u:User)-[r:WORKED_AT]->(o:Organization)
+WHERE o.type = 'company'
+RETURN u.name, o.name, r.title, r.start_date, r.end_date
+
+// Get education history
+MATCH (u:User)-[r:LEARNT_AT]->(o:Organization)
+WHERE o.type = 'educational_institution'
+RETURN u.name, o.name, r.degree, r.start_date, r.end_date
+
+// Find skills used at specific companies
+MATCH (u:User)-[r:WORKED_AT]->(o:Organization)
+WHERE o.name = 'Company Name'
+RETURN r.skills_used
+``` 

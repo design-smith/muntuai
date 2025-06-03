@@ -4,6 +4,7 @@ from backend.data_services.mongo.user_repository import (
 )
 from bson import ObjectId
 from backend.routers.auth_utils import get_current_user
+from backend.GraphRAG.graphrag.resume_integration import ResumeGraphIntegrator
 
 router = APIRouter()
 
@@ -47,9 +48,22 @@ def api_delete_user(user_id: str):
 @router.post("/users/{user_id}/resume")
 async def update_user_resume(user_id: str, resume: dict, current_user: dict = Depends(get_current_user)):
     """
-    Update the resume field for a user.
+    Update the resume field for a user and integrate it into the graph database.
     """
+    # 1. Update MongoDB document
     updated = update_user(user_id, {"resume": resume})
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Integrate with graph database
+    try:
+        integrator = ResumeGraphIntegrator()
+        integrator.integrate_resume(user_id, resume)
+        integrator.close()
+    except Exception as e:
+        # Log the error but don't fail the request since MongoDB update succeeded
+        print(f"Error integrating resume with graph database: {str(e)}")
+
     # Serialize ObjectId and datetimes
     def serialize_user(user):
         user = dict(user)

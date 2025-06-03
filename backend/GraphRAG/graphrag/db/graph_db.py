@@ -1,6 +1,6 @@
 from neo4j import GraphDatabase
-from ..config import get_settings
-from .graph_schema import NODE_TYPES, RELATIONSHIP_TYPES
+from backend.GraphRAG.graphrag.config import get_settings
+from backend.GraphRAG.graphrag.db.graph_schema import NODE_TYPES, RELATIONSHIP_TYPES
 
 class Neo4jWrapper:
     def __init__(self):
@@ -28,6 +28,54 @@ class Neo4jWrapper:
             result = session.run(query, properties=properties)
             return result.single()
     
+    def merge_node(self, label: str, properties: dict):
+        """
+        Create a node if it doesn't exist, or update it if it does.
+        Uses the 'id' property as the unique identifier.
+        """
+        if label not in NODE_TYPES:
+            raise ValueError(f"Unknown node type: {label}")
+        for prop in properties:
+            if prop not in NODE_TYPES[label]:
+                raise ValueError(f"Invalid property '{prop}' for node type '{label}'")
+        
+        with self.driver.session() as session:
+            query = (
+                f"MERGE (n:{label} {{id: $id}}) "
+                "SET n += $properties "
+                "RETURN n"
+            )
+            result = session.run(query, id=properties['id'], properties=properties)
+            return result.single()
+    
+    def node_exists(self, label: str, match_props: dict) -> bool:
+        """
+        Check if a node exists with the given properties.
+        """
+        with self.driver.session() as session:
+            query = (
+                f"MATCH (n:{label}) WHERE " +
+                " AND ".join([f"n.{k} = ${k}" for k in match_props.keys()]) +
+                " RETURN count(n) as count"
+            )
+            result = session.run(query, **match_props)
+            return result.single()["count"] > 0
+    
+    def get_node(self, label: str, match_props: dict):
+        """
+        Get a single node matching the given properties.
+        Returns None if no node is found.
+        """
+        with self.driver.session() as session:
+            query = (
+                f"MATCH (n:{label}) WHERE " +
+                " AND ".join([f"n.{k} = ${k}" for k in match_props.keys()]) +
+                " RETURN n"
+            )
+            result = session.run(query, **match_props)
+            record = result.single()
+            return record["n"] if record else None
+
     def create_relationship(self, from_label: str, to_label: str, rel_type: str, 
                           from_props: dict, to_props: dict, rel_props: dict = None):
         # Validate relationship type and properties
@@ -51,17 +99,36 @@ class Neo4jWrapper:
                                from_id=from_props['id'],
                                to_id=to_props['id'],
                                rel_props=rel_props or {})
-            return result.single() 
+            return result.single()
 
-    def get_node(self, label: str, match_props: dict):
+    def merge_relationship(self, from_label: str, to_label: str, rel_type: str,
+                         from_props: dict, to_props: dict, rel_props: dict = None):
+        """
+        Create a relationship if it doesn't exist, or update it if it does.
+        """
+        if rel_type not in RELATIONSHIP_TYPES:
+            raise ValueError(f"Unknown relationship type: {rel_type}")
+        valid_sources = RELATIONSHIP_TYPES[rel_type]["valid_sources"]
+        valid_targets = RELATIONSHIP_TYPES[rel_type]["valid_targets"]
+        if from_label not in valid_sources or to_label not in valid_targets:
+            raise ValueError(f"Invalid source/target for relationship {rel_type}: {from_label} -> {to_label}")
+        for prop in (rel_props or {}):
+            if prop not in RELATIONSHIP_TYPES[rel_type]["properties"]:
+                raise ValueError(f"Invalid property '{prop}' for relationship type '{rel_type}'")
+        
         with self.driver.session() as session:
             query = (
-                f"MATCH (n:{label}) WHERE " +
-                " AND ".join([f"n.{k} = ${k}" for k in match_props.keys()]) +
-                " RETURN n"
+                f"MATCH (a:{from_label}), (b:{to_label}) "
+                "WHERE a.id = $from_id AND b.id = $to_id "
+                f"MERGE (a)-[r:{rel_type}]->(b) "
+                "SET r += $rel_props "
+                "RETURN r"
             )
-            result = session.run(query, **match_props)
-            return [record["n"] for record in result]
+            result = session.run(query,
+                               from_id=from_props['id'],
+                               to_id=to_props['id'],
+                               rel_props=rel_props or {})
+            return result.single()
 
     def update_node(self, label: str, match_props: dict, update_props: dict):
         with self.driver.session() as session:
@@ -147,6 +214,29 @@ class Neo4jWrapper:
                 } for r in relationships
             ]
             return {"nodes": node_dicts, "relationships": rel_dicts}
+
+    def get_all_nodes(self) -> list:
+        """
+        Get all nodes from the database with their properties and labels.
+        
+        Returns:
+            List of dictionaries containing node data
+        """
+        with self.driver.session() as session:
+            query = """
+            MATCH (n)
+            RETURN n
+            """
+            result = session.run(query)
+            nodes = []
+            for record in result:
+                node = record["n"]
+                nodes.append({
+                    "id": node.get("id"),
+                    "labels": list(node.labels),
+                    **dict(node)
+                })
+            return nodes
 
 if __name__ == "__main__":
     print("Testing Neo4j connectivity...")

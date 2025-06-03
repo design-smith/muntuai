@@ -34,6 +34,26 @@ NODE_TYPES = {
         "embedding_id": "string",
         "created_at": "datetime"
     },
+    "Skill": {
+        "id": "string",
+        "name": "string",
+        "category": "string",
+        "created_at": "datetime"
+    },
+    "Certification": {
+        "id": "string",
+        "name": "string",
+        "issuer": "string",
+        "issue_date": "datetime",
+        "expiry_date": "datetime",
+        "created_at": "datetime"
+    },
+    "Language": {
+        "id": "string",
+        "name": "string",
+        "proficiency": "string",
+        "created_at": "datetime"
+    },
     "Message": {
         "id": "string",
         "content": "string",
@@ -237,6 +257,32 @@ RELATIONSHIP_TYPES = {
         "valid_sources": ["Task"],
         "valid_targets": ["Task"],
         "properties": ["creation_date", "completion_dependency"]
+    },
+    # Resume-specific relationships
+    "HAS_SKILL": {
+        "valid_sources": ["User"],
+        "valid_targets": ["Skill"],
+        "properties": ["proficiency", "years_experience", "last_used"]
+    },
+    "HAS_CERTIFICATION": {
+        "valid_sources": ["User"],
+        "valid_targets": ["Certification"],
+        "properties": ["issue_date", "expiry_date", "verification_url"]
+    },
+    "SPEAKS": {
+        "valid_sources": ["User"],
+        "valid_targets": ["Language"],
+        "properties": ["proficiency", "is_native"]
+    },
+    "WORKED_AT": {
+        "valid_sources": ["User"],
+        "valid_targets": ["Organization"],
+        "properties": ["title", "start_date", "end_date", "location", "skills_used"]
+    },
+    "LEARNT_AT": {
+        "valid_sources": ["User"],
+        "valid_targets": ["Organization"],
+        "properties": ["degree", "start_date", "end_date", "location", "description"]
     }
 }
 

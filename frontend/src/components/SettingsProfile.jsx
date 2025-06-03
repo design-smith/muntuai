@@ -45,21 +45,63 @@ const SettingsProfile = () => {
     if (!user?.id) return;
     try {
       const res = await fetch(`http://localhost:8000/users/${user.id}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch user profile: ${res.statusText}`);
+      }
       const data = await res.json();
+      
+      // Update basic profile fields
       setFirstName(data.first_name || '');
       setLastName(data.last_name || '');
       setPersonalTitle(data.title || '');
       setPersonalEmail(data.email || '');
       setPersonalPhone(data.phone || '');
+
+      // Handle resume data
       if (data.resume) {
+        // Summary
         setSummary(data.resume.summary || '');
-        setSkills(Array.isArray(data.resume.skills) ? data.resume.skills : (data.resume.skills ? [data.resume.skills] : []));
-        setWorkExperience(Array.isArray(data.resume.work_experience) ? data.resume.work_experience : []);
-        setEducation(Array.isArray(data.resume.education) ? data.resume.education : []);
-        setCertifications(Array.isArray(data.resume.certifications) ? data.resume.certifications : []);
-        setLanguages(Array.isArray(data.resume.languages) ? data.resume.languages : []);
-        setLinks(Array.isArray(data.resume.links) ? data.resume.links : []);
+        
+        // Skills - handle both array and string formats
+        const skillsData = data.resume.skills || [];
+        setSkills(Array.isArray(skillsData) ? skillsData : [skillsData].filter(Boolean));
+        
+        // Work Experience - ensure proper structure
+        const workExp = data.resume.work_experience || [];
+        setWorkExperience(Array.isArray(workExp) ? workExp.map(exp => ({
+          company: exp.company || exp.organization || '',
+          title: exp.title || exp.jobTitle || '',
+          start: exp.start || exp.startDate || '',
+          end: exp.end || exp.endDate || '',
+          description: exp.description || exp.jobDescription || '',
+          location: exp.location || '',
+          skills_used: exp.skills_used || []
+        })) : []);
+        
+        // Education - ensure proper structure
+        const edu = data.resume.education || [];
+        setEducation(Array.isArray(edu) ? edu.map(eduItem => ({
+          school: eduItem.school || eduItem.organization || '',
+          degree: eduItem.degree || eduItem.accreditation?.education || '',
+          start: eduItem.start || eduItem.startDate || '',
+          end: eduItem.end || eduItem.endDate || '',
+          description: eduItem.description || '',
+          location: eduItem.location || ''
+        })) : []);
+        
+        // Certifications - handle both array and string formats
+        const certs = data.resume.certifications || [];
+        setCertifications(Array.isArray(certs) ? certs : [certs].filter(Boolean));
+        
+        // Languages - handle both array and string formats
+        const langs = data.resume.languages || [];
+        setLanguages(Array.isArray(langs) ? langs : [langs].filter(Boolean));
+        
+        // Links - handle both array and string formats
+        const linksData = data.resume.links || data.resume.websites || [];
+        setLinks(Array.isArray(linksData) ? linksData : [linksData].filter(Boolean));
       } else {
+        // Reset all resume fields if no resume data
         setSummary('');
         setSkills([]);
         setWorkExperience([]);
@@ -68,15 +110,10 @@ const SettingsProfile = () => {
         setLanguages([]);
         setLinks([]);
       }
-    } catch {
-      // Optionally show error
-      setSummary('');
-      setSkills([]);
-      setWorkExperience([]);
-      setEducation([]);
-      setCertifications([]);
-      setLanguages([]);
-      setLinks([]);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      // Optionally show error to user
+      alert('Failed to load profile data. Please try again.');
     }
   };
 
@@ -167,7 +204,8 @@ const SettingsProfile = () => {
   // Save user profile info (first/last name, title, phone)
   const saveUserProfile = async (fields) => {
     if (!user?.id) return;
-    await fetch(`http://localhost:8000/users/${user.id}`, {
+    try {
+      const res = await fetch(`http://localhost:8000/users/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -175,8 +213,77 @@ const SettingsProfile = () => {
         },
         body: JSON.stringify(fields),
       });
-    await fetchUserProfile();
+      
+      if (!res.ok) {
+        throw new Error(`Failed to save profile: ${res.statusText}`);
+      }
+      
+      await fetchUserProfile();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Failed to save profile changes. Please try again.');
+    }
   };
+
+  // Save resume data
+  const saveResumeData = async () => {
+    if (!user?.id) return;
+    try {
+      const resumeData = {
+        summary,
+        skills,
+        work_experience: workExperience.map(exp => ({
+          company: exp.company,
+          title: exp.title,
+          start: exp.start,
+          end: exp.end,
+          description: exp.description,
+          location: exp.location,
+          skills_used: exp.skills_used || []
+        })),
+        education: education.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          start: edu.start,
+          end: edu.end,
+          description: edu.description,
+          location: edu.location
+        })),
+        certifications,
+        languages,
+        links
+      };
+
+      const res = await fetch(`http://localhost:8000/users/${user.id}/resume`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.accessToken}`,
+        },
+        body: JSON.stringify(resumeData),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to save resume: ${res.statusText}`);
+      }
+
+      await fetchUserProfile();
+    } catch (error) {
+      console.error('Error saving resume:', error);
+      alert('Failed to save resume changes. Please try again.');
+    }
+  };
+
+  // Add auto-save functionality for resume fields
+  useEffect(() => {
+    const saveTimeout = setTimeout(() => {
+      if (user?.id) {
+        saveResumeData();
+      }
+    }, 2000); // Debounce for 2 seconds
+
+    return () => clearTimeout(saveTimeout);
+  }, [summary, skills, workExperience, education, certifications, languages, links]);
 
   return (
     <div className="settings-profile-root">
