@@ -37,64 +37,132 @@ def get_context_messages(history: List[dict]) -> List[dict]:
 
 @router.websocket("/ws/chat/{chat_id}")
 async def websocket_endpoint(websocket: WebSocket, chat_id: str):
-    await websocket.accept()
-    chat = get_chat_by_id(chat_id)
-    if not chat:
-        await websocket.close()
-        return
-    assistant_id = chat.get('assistant_id')
-    user_id = chat.get('user_id')
-    messages = chat.get('messages', [])
-    # Instantiate the primary agent with the assistant config
-    agent = get_primary_agent(assistant_id=assistant_id, user_id=user_id)
-    active_connections[chat_id] = websocket
-    active_agents[chat_id] = agent
-    conversation_history[chat_id] = messages.copy()
     try:
+        await websocket.accept()
+        
+        # Handle initial connection
+        if chat_id == "initial":
+            try:
+                while True:
+                    # Keep connection alive with ping/pong
+                    data = await websocket.receive_text()
+                    try:
+                        message_data = json.loads(data)
+                        if message_data.get("type") == "pong":
+                            continue
+                    except json.JSONDecodeError:
+                        pass
+                    
+                    # Send ping to keep connection alive
+                    await websocket.send_json({
+                        "type": "ping",
+                        "content": "connected"
+                    })
+            except WebSocketDisconnect:
+                return
+            except Exception as e:
+                print(f"Error in initial connection: {str(e)}")
+                return
+        
+        # Handle actual chat connection
+        chat = get_chat_by_id(chat_id)
+        if not chat:
+            await websocket.close(code=1000, reason="Chat not found")
+            return
+            
+        assistant_id = chat.get('assistant_id')
+        user_id = chat.get('user_id')
+        messages = chat.get('messages', [])
+        
+        # Instantiate the primary agent with the assistant config
+        agent = get_primary_agent(assistant_id=assistant_id, user_id=user_id)
+        active_connections[chat_id] = websocket
+        active_agents[chat_id] = agent
+        conversation_history[chat_id] = messages.copy()
+        
+        # Send initial connection success message
+        await websocket.send_json({
+            "type": "connection_status",
+            "content": "connected",
+            "chat_id": chat_id
+        })
+        
         while True:
-            # Receive message from client
-            data = await websocket.receive_text()
-            message_data = json.loads(data)
-            # Add user message to DB and in-memory history
-            user_message = {
-                "sender": "You",
-                "text": message_data["content"],
-                "created_at": datetime.utcnow()
-            }
-            conversation_history[chat_id].append(user_message)
-            add_message(chat_id, user_message)
-            # Get context messages (convert to role/content for agent)
-            # (No longer needed for generate_reply, but keep for possible future use)
-            # Append current date and time to the prompt
-            # Use process_request to generate the response
-            print(f"Processing request: {message_data['content']}")
-            print(f"Agent: {agent}")
-            print(f"User ID: {user_id}")
-            print(f"Assistant ID: {assistant_id}")
-            response = process_request(
-                agent,
-                message_data["content"],
-                user_id=user_id,
-                assistant_id=assistant_id
-            )
-            print(f"Response: {response}")
-            # Add agent's response to history and DB
-            assistant_message = {
-                "sender": agent.name,
-                "text": response,
-                "created_at": datetime.utcnow()
-            }
-            conversation_history[chat_id].append(assistant_message)
-            add_message(chat_id, assistant_message)
-            # Send response back to client
-            created_at = assistant_message["created_at"]
-            await websocket.send_json({
-                "type": "message",
-                "sender": agent.name,
-                "content": response,
-                "time": created_at.isoformat() if isinstance(created_at, datetime) else str(created_at)
-            })
+            try:
+                # Receive message from client
+                data = await websocket.receive_text()
+                message_data = json.loads(data)
+                
+                # Handle ping/pong
+                if message_data.get("type") == "pong":
+                    continue
+                
+                # Add user message to DB and in-memory history
+                user_message = {
+                    "sender": "You",
+                    "text": message_data["content"],
+                    "created_at": message_data.get("timestamp", datetime.utcnow()),
+                    "formatted_time": message_data.get("formattedTime"),
+                    "timezone": message_data.get("timezone")
+                }
+                conversation_history[chat_id].append(user_message)
+                add_message(chat_id, user_message)
+                
+                # Process the request
+                print(f"Processing request: {message_data['content']}")
+                print(f"Agent: {agent}")
+                print(f"User ID: {user_id}")
+                print(f"Assistant ID: {assistant_id}")
+                
+                response = process_request(
+                    agent,
+                    message_data["content"],
+                    user_id=user_id,
+                    assistant_id=assistant_id
+                )
+                
+                print(f"Response: {response}")
+                
+                # Add agent's response to history and DB
+                assistant_message = {
+                    "sender": agent.name,
+                    "text": response,
+                    "created_at": datetime.utcnow(),
+                    "formatted_time": datetime.utcnow().strftime("%a, %b %d, %Y %H:%M:%S"),
+                    "timezone": "UTC"
+                }
+                conversation_history[chat_id].append(assistant_message)
+                add_message(chat_id, assistant_message)
+                
+                # Send response back to client
+                created_at = assistant_message["created_at"]
+                await websocket.send_json({
+                    "type": "message",
+                    "sender": agent.name,
+                    "content": response,
+                    "time": created_at.isoformat() if isinstance(created_at, datetime) else str(created_at),
+                    "formattedTime": assistant_message["formatted_time"],
+                    "timezone": assistant_message["timezone"]
+                })
+                
+            except WebSocketDisconnect:
+                break
+            except json.JSONDecodeError:
+                print("Invalid JSON received")
+                continue
+            except Exception as e:
+                print(f"Error processing message: {str(e)}")
+                await websocket.send_json({
+                    "type": "error",
+                    "content": str(e)
+                })
+                continue
+                
     except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"WebSocket error: {str(e)}")
+    finally:
         # Clean up when client disconnects
         if chat_id in active_connections:
             del active_connections[chat_id]
@@ -102,12 +170,6 @@ async def websocket_endpoint(websocket: WebSocket, chat_id: str):
             del active_agents[chat_id]
         if chat_id in conversation_history:
             del conversation_history[chat_id]
-    except Exception as e:
-        # Handle any other errors
-        await websocket.send_json({
-            "type": "error",
-            "content": str(e)
-        })
 
 def to_str_id(doc):
     if doc and "_id" in doc:

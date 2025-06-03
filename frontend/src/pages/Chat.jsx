@@ -18,22 +18,11 @@ import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import BotIcon from '@mui/icons-material/SmartToy';
+import SearchIcon from '@mui/icons-material/Search';
 import { websocketService } from '../services/websocket';
 import { useUser } from '../App';
 import { useNavigate } from 'react-router-dom';
-
-function formatMessageTime(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  if (isToday) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } else {
-    // e.g., Tue 2:37 PM
-    return date.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-  }
-}
+import { formatMessageTime, getFullTimestamp } from '../utils/timeUtils';
 
 const Chat = () => {
   const { user } = useUser();
@@ -42,6 +31,8 @@ const Chat = () => {
   const [input, setInput] = useState('');
   const [messagesPerChat, setMessagesPerChat] = useState([]);
   const [chatList, setChatList] = useState([]);
+  const [filteredChatList, setFilteredChatList] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [assistants, setAssistants] = useState([]);
   const [assistantsLoading, setAssistantsLoading] = useState(false);
   const [assistantsError, setAssistantsError] = useState('');
@@ -149,12 +140,36 @@ const Chat = () => {
     }
   }, [currentMessages]);
 
+  // Update filtered chats when search query or chat list changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredChatList(chatList);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const filtered = chatList.filter(chat => {
+      const assistant = assistants.find(a => a._id === chat.assistant_id);
+      const assistantName = assistant ? assistant.name.toLowerCase() : '';
+      const messages = chat.messages || [];
+      const messageText = messages.map(m => m.text || m.content || '').join(' ').toLowerCase();
+      
+      return assistantName.includes(query) || messageText.includes(query);
+    });
+
+    setFilteredChatList(filtered);
+  }, [searchQuery, chatList, assistants]);
+
   // Handle sending a message
   const handleSend = async (content) => {
     if (!content.trim()) return;
+    
+    const timestamp = getFullTimestamp();
+    
     // If no chat selected, create a new chat
     if (selected === null) {
       if (!selectedAssistant || !user?.id) return;
+      
       // Create chat
       const res = await fetch('http://localhost:8000/api/chats', {
         method: 'POST',
@@ -168,41 +183,65 @@ const Chat = () => {
           messages: []
         })
       });
+      
       const chat = await res.json();
-      // Optimistically add the message to the new chat
+      
+      // Create user message with timestamp
       const userMessage = {
         sender: 'You',
         text: content,
         position: 'outgoing',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        time: timestamp.timestamp,
+        formattedTime: timestamp.formatted,
+        timezone: timestamp.timezone
       };
+      
       // Insert new chat at the top
       setChatList(prev => [chat, ...prev]);
       setMessagesPerChat(prev => [[userMessage], ...prev]);
       setSelected(0); // new chat is now at the top
       setTimeout(() => {
         websocketService.connectToChat(chat._id);
-        websocketService.sendMessage(content);
+        websocketService.sendMessage({
+          content,
+          timestamp: timestamp.timestamp,
+          formattedTime: timestamp.formatted,
+          timezone: timestamp.timezone
+        });
       }, 200);
       setInput('');
       setCurrentMessages([userMessage]);
       return;
     }
-    // User message
+    
+    // User message with timestamp
     const userMessage = {
       sender: 'You',
       text: content,
       position: 'outgoing',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: timestamp.timestamp,
+      formattedTime: timestamp.formatted,
+      timezone: timestamp.timezone
     };
+
     setMessagesPerChat(prev => {
       const updated = [...prev];
       updated[selected] = [...(updated[selected] || []), userMessage];
       return updated;
     });
     setCurrentMessages(prev => [...prev, userMessage]);
-    websocketService.sendMessage(content);
+    websocketService.sendMessage({
+      content,
+      timestamp: timestamp.timestamp,
+      formattedTime: timestamp.formatted,
+      timezone: timestamp.timezone
+    });
     setInput('');
+  };
+
+  // Update message display to show only time
+  const renderMessageTime = (msg) => {
+    return formatMessageTime(msg.time);
   };
 
   return (
@@ -257,19 +296,55 @@ const Chat = () => {
         </Box>
         {/* Second row: Chat history sidebar and main chat area */}
         <Box className="chat-grid-history">
-          <Box className="chat-sidebar-list">
+        <div style={{
+              padding: '1rem',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: '#202020',
+                borderRadius: '8px',
+                padding: '0.5rem 1rem',
+                border: '1px solid var(--marian-blue)'
+              }}>
+                <SearchIcon style={{ 
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  marginRight: '8px',
+                  fontSize: '1.2rem'
+                }} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search chats..."
+                  style={{
+                    flex: 1,
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    color: 'white',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+            </div>
+            <Box className="chat-sidebar-list">
+            {/* Chat list */}
             {loadingChats ? (
               <div style={{ color: '#fff', opacity: 0.7, padding: '1rem' }}>Loading chats...</div>
-            ) : chatList.length === 0 ? (
-              <div style={{ color: '#fff', opacity: 0.7, padding: '1rem' }}>No chats yet</div>
-            ) : chatList.map((chat, idx) => {
+            ) : filteredChatList.length === 0 ? (
+              <div style={{ color: '#fff', opacity: 0.7, padding: '1rem' }}>
+                {searchQuery ? 'No chats found matching your search' : 'No chats yet'}
+              </div>
+            ) : filteredChatList.map((chat) => {
               const lastMsg = (chat.messages && chat.messages.length > 0) ? chat.messages[chat.messages.length - 1] : null;
               const assistant = assistants.find(a => a._id === chat.assistant_id);
               return (
                 <div
                   key={chat._id}
-                  className={`chat-history-item${selected === idx ? ' selected' : ''}`}
-                  onClick={() => setSelected(idx)}
+                  className={`chat-history-item${selected === chatList.indexOf(chat) ? ' selected' : ''}`}
+                  onClick={() => setSelected(chatList.indexOf(chat))}
                 >
                   <div className="chat-history-sender">{assistant ? assistant.name : 'Assistant'}</div>
                   <div className="chat-history-message">{lastMsg ? (lastMsg.content || lastMsg.text) : 'No messages yet'}</div>
@@ -277,105 +352,48 @@ const Chat = () => {
                 </div>
               );
             })}
-          </Box>
+            </Box>
         </Box>
         {/* Main chat area */}
-        {selected !== null ? (
-          <Box className="chat-main">
-            {/* Messages area */}
-            <Box className="chat-main-messages">
-              {currentMessages.map((msg, idx) => (
-                <Box key={idx}>
-                  <Box className={`message-bubble-wrapper-${msg.position === 'outgoing' ? 'right' : 'left'}`}> 
-                    <Box className={`message-bubble-${msg.position === 'outgoing' ? 'right' : 'left'}`}>
-                      <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '4px' }}>
-                        {msg.sender} • {formatMessageTime(msg.time)}
-                      </div>
-                      {msg.text}
-                    </Box>
+          {selected !== null ? (
+            <Box className="chat-main">
+              {/* Messages area */}
+              <Box className="chat-main-messages">
+                {currentMessages.map((msg, idx) => (
+                  <Box key={idx}>
+                      <Box className={`message-bubble-wrapper-${msg.position === 'outgoing' ? 'right' : 'left'}`}> 
+                        <Box className={`message-bubble-${msg.position === 'outgoing' ? 'right' : 'left'}`}>
+                          <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '4px' }}>
+                        {msg.sender} • {renderMessageTime(msg)}
+                          </div>
+                          {msg.text}
+                        </Box>
+                      </Box>
                   </Box>
-                </Box>
-              ))}
-              <div ref={messagesEndRef} />
-            </Box>
-            {/* Input area */}
-            <Box className="chat-main-input">
-              <div style={{ 
-                display: 'flex', 
-                backgroundColor: '#202020',
-                borderRadius: '16px',
-                border: '1px solid var(--marian-blue)',
-                padding: '0.5rem 1rem',
-                alignItems: 'center',
-                margin: '0 1.5rem'
-              }}>
-                {/* Attachment Icon */}
-                <AttachFileIcon 
-                  style={{ 
-                    color: 'rgba(255, 255, 255, 0.5)', 
-                    cursor: 'pointer',
-                    marginRight: '8px',
-                    fontSize: '1.2rem'
-                  }} 
-                />
-                {/* Input Field */}
-                <input
-                  style={{
-                    flex: 1,
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    color: 'white',
-                    fontSize: '1rem',
-                    padding: '0.5rem'
-                  }}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Type your message..."
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && input.trim()) {
-                      handleSend(input);
-                      console.log("Sending message:", input);
-                    }
-                  }}
-                />
-                {/* Send Icon - Changes color based on input */}
-                <SendIcon 
-                  onClick={() => handleSend(input)}
-                  style={{ 
-                    color: input.trim() ? 'var(--orange-crayola)' : 'rgba(255, 255, 255, 0.4)', 
-                    cursor: input.trim() ? 'pointer' : 'default',
-                    fontSize: '1.2rem',
-                    transition: 'color 0.2s'
-                  }} 
-                />
-              </div>
-            </Box>
-          </Box>
-        ) : (
-          <Box className="chat-main">
-            <Box className="chat-main-input-centered">
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1.5rem',
-                maxWidth: '600px',
-                textAlign: 'center'
-              }}>
-                <div style={{ color: 'var(--orange-crayola)', fontWeight: 600, fontSize: '1.5rem' }}>
-                  <p> What can {selectedAssistant ? selectedAssistant.name : 'the assistant'} help you with?</p> 
-                </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </Box>
+              {/* Input area */}
+              <Box className="chat-main-input">
                 <div style={{ 
                   display: 'flex', 
-                  backgroundColor: '#202020',
+                backgroundColor: '#202020',
                   borderRadius: '16px',
                   border: '1px solid var(--marian-blue)',
                   padding: '0.5rem 1rem',
                   alignItems: 'center',
-                  width: '100%',
-                  maxWidth: '500px'
+                  margin: '0 1.5rem'
                 }}>
+                  {/* Attachment Icon */}
+                  <AttachFileIcon 
+                    style={{ 
+                      color: 'rgba(255, 255, 255, 0.5)', 
+                      cursor: 'pointer',
+                      marginRight: '8px',
+                      fontSize: '1.2rem'
+                    }} 
+                  />
+                  {/* Input Field */}
                   <input
                     style={{
                       flex: 1,
@@ -388,20 +406,17 @@ const Chat = () => {
                     }}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask me anything..."
+                    placeholder="Type your message..."
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && input.trim()) {
                         handleSend(input);
+                      console.log("Sending message:", input);
                       }
                     }}
                   />
+                  {/* Send Icon - Changes color based on input */}
                   <SendIcon 
-                    onClick={() => {
-                      if (input.trim()) {
-                        handleSend(input);
-                        console.log("Sending message:", input);
-                      }
-                    }}
+                    onClick={() => handleSend(input)}
                     style={{ 
                       color: input.trim() ? 'var(--orange-crayola)' : 'rgba(255, 255, 255, 0.4)', 
                       cursor: input.trim() ? 'pointer' : 'default',
@@ -410,10 +425,70 @@ const Chat = () => {
                     }} 
                   />
                 </div>
-              </div>
+              </Box>
             </Box>
-          </Box>
-        )}
+          ) : (
+            <Box className="chat-main">
+              <Box className="chat-main-input-centered">
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '1.5rem',
+                  maxWidth: '600px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ color: 'var(--orange-crayola)', fontWeight: 600, fontSize: '1.5rem' }}>
+                    <p> What can {selectedAssistant ? selectedAssistant.name : 'the assistant'} help you with?</p> 
+                  </div>
+                  <div style={{ 
+                    display: 'flex', 
+                  backgroundColor: '#202020',
+                    borderRadius: '16px',
+                    border: '1px solid var(--marian-blue)',
+                    padding: '0.5rem 1rem',
+                    alignItems: 'center',
+                    width: '100%',
+                    maxWidth: '500px'
+                  }}>
+                    <input
+                      style={{
+                        flex: 1,
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        color: 'white',
+                        fontSize: '1rem',
+                        padding: '0.5rem'
+                      }}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Ask me anything..."
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && input.trim()) {
+                          handleSend(input);
+                        }
+                      }}
+                    />
+                    <SendIcon 
+                      onClick={() => {
+                        if (input.trim()) {
+                          handleSend(input);
+                        console.log("Sending message:", input);
+                        }
+                      }}
+                      style={{ 
+                        color: input.trim() ? 'var(--orange-crayola)' : 'rgba(255, 255, 255, 0.4)', 
+                        cursor: input.trim() ? 'pointer' : 'default',
+                        fontSize: '1.2rem',
+                        transition: 'color 0.2s'
+                      }} 
+                    />
+                  </div>
+                </div>
+              </Box>
+            </Box>
+          )}
       </Box>
     </Box>
   );

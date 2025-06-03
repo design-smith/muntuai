@@ -13,7 +13,7 @@ load_dotenv()
 
 class CalendarManager:
     def __init__(self, timezone="UTC"):
-        self.schedule_file = "workspace/schedule.json"
+        self.schedule_file = "backend/workspace/schedule.json"
         self.timezone = timezone
         self._ensure_schedule_file()
     
